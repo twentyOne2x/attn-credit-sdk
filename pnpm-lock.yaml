@@ -30,6 +30,15 @@ importers:
         specifier: workspace:*
         version: link:../sdk
 
+  packages/harness-cli:
+    dependencies:
+      '@attn-credit/clawpump':
+        specifier: workspace:*
+        version: link:../clawpump
+      '@attn-credit/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+
   packages/sdk:
     dependencies:
       zod:

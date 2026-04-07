@@ -12,6 +12,8 @@ Included packages:
    The generic partner-managed contract: descriptors, readbacks, receipts, evidence packs, stage assessment, and drift signals.
 2. `@attn-credit/clawpump`
    A reference adapter showing how one partner-specific backend can map into the generic contract.
+3. `@attn-credit/partner-managed-harness-cli`
+   A retained-run CLI harness that executes the SDK contract, emits logs and artifacts, and snapshots attn compatibility surfaces when requested.
 
 Use the public docs and the SDK together:
 
@@ -33,6 +35,27 @@ pnpm typecheck
 pnpm build
 pnpm test
 ```
+
+Retained harness run:
+
+```bash
+pnpm run harness:clawpump-mock-pilot -- \
+  --out-dir ./tmp/harness-runs \
+  --attn-base-url https://app.attn.markets \
+  --preset-id solana_borrower_privy_only \
+  --creator-ingress-mode direct-to-swig \
+  --control-profile-id partner_managed_light
+```
+
+That command writes a timestamped run directory containing partner snapshots, SDK artifacts, NDJSON logs, and optional attn compatibility snapshots.
+
+Comparative matrix run:
+
+```bash
+pnpm run harness:clawpump-mock-matrix -- --out-dir ./tmp/harness-runs
+```
+
+That command retains multiple scenario runs side by side so you can compare the baseline contract against degraded partner-read cases.
 
 License:
 

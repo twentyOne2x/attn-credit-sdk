@@ -16,6 +16,7 @@ Public references:
 1. integration guide: [docs.attn.markets/users/partner-managed-creator-fee-integration](https://docs.attn.markets/users/partner-managed-creator-fee-integration)
 2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
 3. standalone SDK repo: [twentyOne2x/attn-credit-sdk](https://github.com/twentyOne2x/attn-credit-sdk)
+4. retained-run harness: [packages/harness-cli/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/packages/harness-cli/README.md)
 
 The public doc should answer:
 
@@ -30,6 +31,8 @@ This README should answer:
 2. which readbacks and receipts attn expects
 3. how attn classifies the lane
 4. how attn packages evidence and drift signals
+
+If you want to execute this contract instead of reading only the types, use the retained-run harness in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md).
 
 This contract is not limited to creator-fee lanes. It can describe partner-managed revenue sources such as creator fees, service fees, usage-metered x402-style flows, subscriptions, or another custom cashflow model, as long as the payout path and debt-open routing can be made explicit.
 

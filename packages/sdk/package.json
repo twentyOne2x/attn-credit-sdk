@@ -23,7 +23,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/schema.ts src/eip8183.ts src/settlement.ts --format cjs --dts --sourcemap --clean",
+    "build": "rm -rf dist && tsup src/index.ts src/schema.ts src/eip8183.ts src/settlement.ts --format cjs --dts --sourcemap",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "repository": {

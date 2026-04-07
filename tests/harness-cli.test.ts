@@ -1,0 +1,220 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile } from "node:fs/promises";
+import http from "node:http";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+const REPO_ROOT = "/Users/user/PycharmProjects/attn-credit-sdk";
+const CLI_DIST_PATH = path.join(REPO_ROOT, "packages/harness-cli/dist/index.js");
+
+async function runCli(args: string[]) {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [CLI_DIST_PATH, ...args], {
+    cwd: REPO_ROOT,
+  });
+  return {
+    stdout: stdout.trim(),
+    stderr: stderr.trim(),
+    summary: JSON.parse(stdout) as {
+      ok: boolean;
+      run_dir: string;
+      stage: string;
+      claim_level: string;
+      artifact_paths: Record<string, string>;
+      attn_catalog_snapshot: boolean;
+      attn_capabilities_snapshot: boolean;
+      failures: Array<{ step: string; message: string; code?: string }>;
+    },
+  };
+}
+
+test("partner harness CLI emits a retained run directory with SDK artifacts and logs", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-"));
+  const result = await runCli(["clawpump-mock-pilot", "--out-dir", outDir]);
+
+  assert.equal(result.summary.ok, true);
+  assert.equal(result.summary.stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(result.summary.claim_level, "underwriting_compatible");
+  assert.equal(result.summary.attn_catalog_snapshot, false);
+  assert.equal(result.summary.attn_capabilities_snapshot, false);
+  assert.ok(result.summary.artifact_paths.sdk_evidence_pack);
+  assert.ok(result.summary.artifact_paths.partner_payout_topology);
+
+  const summaryFile = await readFile(result.summary.artifact_paths.summary, "utf8");
+  const evidencePackFile = await readFile(result.summary.artifact_paths.sdk_evidence_pack, "utf8");
+  const logFile = await readFile(path.join(result.summary.run_dir, "logs", "events.ndjson"), "utf8");
+
+  const summaryJson = JSON.parse(summaryFile) as { stage: string };
+  const evidencePackJson = JSON.parse(evidencePackFile) as {
+    descriptor: { partner_id: string };
+    assessment: { stage: string };
+    receipts: Array<{ receipt_type: string }>;
+  };
+
+  assert.equal(summaryJson.stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(evidencePackJson.descriptor.partner_id, "clawpump");
+  assert.equal(evidencePackJson.assessment.stage, "stage_2_observable_payout_path_mvp");
+  assert.deepEqual(
+    evidencePackJson.receipts.map((receipt) => receipt.receipt_type),
+    [
+      "partner_managed_payout_topology_receipt",
+      "partner_managed_change_event_receipt",
+      "partner_managed_revenue_events_receipt",
+      "partner_managed_debt_open_routing_receipt",
+    ],
+  );
+  assert.match(logFile, /partner\.getPayoutTopology/);
+  assert.match(logFile, /sdk\.writeEvidencePack/);
+  assert.equal(
+    result.summary.required_partner_inputs.includes("payout_edit_authority_separation"),
+    true,
+  );
+  assert.equal(
+    result.summary.residual_risk_codes.includes("private_treasury_funding_receipts_missing"),
+    true,
+  );
+});
+
+test("partner harness CLI fails closed when partner reads are injected to fail", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-fail-"));
+  const result = await runCli([
+    "clawpump-mock-pilot",
+    "--out-dir",
+    outDir,
+    "--inject-failure",
+    "getPayoutTopology:unavailable",
+  ]).catch((error: { stdout?: string }) => {
+    const stdout = error.stdout ?? "";
+    return {
+      stdout: stdout.trim(),
+      summary: JSON.parse(stdout) as {
+        ok: boolean;
+        stage: string;
+        failures: Array<{ step: string; code?: string }>;
+      },
+    };
+  });
+
+  assert.equal(result.summary.ok, false);
+  assert.equal(result.summary.stage, "stage_0_truth_discovery");
+  assert.equal(
+    result.summary.failures.some(
+      (failure) => failure.step === "partner.getPayoutTopology" && failure.code === "unavailable",
+    ),
+    true,
+  );
+  assert.equal(
+    result.summary.failures.every((failure) => typeof failure.message === "string" && failure.message.length > 0),
+    true,
+  );
+});
+
+test("partner harness CLI snapshots attn catalog and capabilities through a deterministic local server", async () => {
+  const server = http.createServer((request, response) => {
+    if (request.url?.startsWith("/api/partner/credit/catalog")) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          ok: true,
+          catalog_version: "v1",
+          current_truth: {
+            live_claim_scope: "callable_fallback_only",
+          },
+        }),
+      );
+      return;
+    }
+
+    if (request.url === "/api/partner/credit/capabilities") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          ok: true,
+          receipt_type: "partner_capabilities_receipt",
+          state: "ready",
+        }),
+      );
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: false }));
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind local test server");
+  }
+
+  try {
+    const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-attn-"));
+    const result = await runCli([
+      "clawpump-mock-pilot",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+      "--preset-id",
+      "solana_borrower_privy_only",
+      "--creator-ingress-mode",
+      "direct-to-swig",
+      "--control-profile-id",
+      "partner_managed_light",
+    ]);
+
+    assert.equal(result.summary.ok, true);
+    assert.equal(result.summary.attn_catalog_snapshot, true);
+    assert.equal(result.summary.attn_capabilities_snapshot, true);
+
+    const catalogFile = await readFile(result.summary.artifact_paths.attn_catalog, "utf8");
+    const capabilitiesFile = await readFile(result.summary.artifact_paths.attn_capabilities, "utf8");
+    const catalogJson = JSON.parse(catalogFile) as { current_truth?: { live_claim_scope?: string } };
+    const capabilitiesJson = JSON.parse(capabilitiesFile) as { state?: string };
+
+    assert.equal(catalogJson.current_truth?.live_claim_scope, "callable_fallback_only");
+    assert.equal(capabilitiesJson.state, "ready");
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("partner harness CLI can retain a small scenario matrix for comparative analysis", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-matrix-"));
+  const result = await runCli(["clawpump-mock-matrix", "--out-dir", outDir]);
+
+  const matrixSummary = result.summary as unknown as {
+    ok: boolean;
+    all_scenarios_ok: boolean;
+    degraded_scenario_count: number;
+    matrix_dir: string;
+    scenario_summaries: Array<{
+      scenario_id: string;
+      stage: string;
+      failure_count: number;
+    }>;
+  };
+
+  assert.equal(matrixSummary.ok, true);
+  assert.equal(matrixSummary.all_scenarios_ok, false);
+  assert.equal(matrixSummary.degraded_scenario_count, 2);
+  assert.equal(matrixSummary.scenario_summaries.length, 3);
+  assert.deepEqual(
+    matrixSummary.scenario_summaries.map((scenario) => scenario.scenario_id),
+    ["baseline", "payout_topology_unavailable", "repayment_activation_unsupported"],
+  );
+  assert.equal(matrixSummary.scenario_summaries[0]?.stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(matrixSummary.scenario_summaries[1]?.stage, "stage_0_truth_discovery");
+  assert.equal(matrixSummary.scenario_summaries[2]?.failure_count, 1);
+
+  const matrixSummaryFile = await readFile(path.join(matrixSummary.matrix_dir, "matrix-summary.json"), "utf8");
+  const matrixLogFile = await readFile(path.join(matrixSummary.matrix_dir, "logs", "events.ndjson"), "utf8");
+  assert.match(matrixSummaryFile, /payout_topology_unavailable/);
+  assert.match(matrixLogFile, /repayment_activation_unsupported/);
+});

@@ -8,8 +8,11 @@
   },
   "scripts": {
     "build": "pnpm -r build",
+    "harness:help": "node packages/harness-cli/dist/index.js --help",
+    "harness:clawpump-mock-pilot": "node packages/harness-cli/dist/index.js clawpump-mock-pilot",
+    "harness:clawpump-mock-matrix": "node packages/harness-cli/dist/index.js clawpump-mock-matrix",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm exec tsx --test tests/sdk-client.test.ts tests/clawpump-client.test.ts"
+    "test": "pnpm build && pnpm exec tsx --test tests/sdk-client.test.ts tests/clawpump-client.test.ts tests/harness-cli.test.ts"
   },
   "devDependencies": {
     "@types/node": "20.19.32",
@@ -19,4 +22,3 @@
     "zod": "4.3.6"
   }
 }
-

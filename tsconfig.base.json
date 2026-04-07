@@ -4,6 +4,11 @@
     "lib": ["ES2022"],
     "module": "commonjs",
     "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@attn-credit/sdk": ["packages/sdk/src/index.ts"],
+      "@attn-credit/clawpump": ["packages/clawpump/src/index.ts"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
@@ -12,4 +17,3 @@
     "types": ["node"]
   }
 }
-

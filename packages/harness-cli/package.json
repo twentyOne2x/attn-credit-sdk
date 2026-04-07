@@ -1,9 +1,12 @@
 {
-  "name": "@attn-credit/clawpump",
+  "name": "@attn-credit/partner-managed-harness-cli",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "attn-partner-harness": "dist/index.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,9 +20,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/twentyOne2x/attn-credit-sdk.git",
-    "directory": "packages/clawpump"
+    "directory": "packages/harness-cli"
   },
   "dependencies": {
+    "@attn-credit/clawpump": "workspace:*",
     "@attn-credit/sdk": "workspace:*"
   }
 }
