@@ -41,10 +41,10 @@ export type PartnerManagedRepaymentEnforcementClass =
   (typeof PARTNER_MANAGED_REPAYMENT_ENFORCEMENT_CLASSES)[number];
 
 export const PARTNER_WALLET_POLICY_REQUIREMENT_IDS = [
-  "authoritative_launch_attribution",
+  "authoritative_revenue_source_attribution",
   "authoritative_revenue_scope_mapping",
   "authoritative_wallet_topology",
-  "authoritative_fee_state",
+  "authoritative_payout_state",
   "authoritative_revenue_event_feed",
   "repayment_target_invariant",
   "payout_edit_authority_separation",
@@ -86,7 +86,10 @@ export type PartnerManagedClaimLevel = (typeof PARTNER_MANAGED_CLAIM_LEVELS)[num
 export const PARTNER_MANAGED_REVENUE_SCOPE_MODELS = [
   "creator_fees",
   "service_fees",
+  "usage_fees",
+  "subscription_revenue",
   "creator_and_service_fees",
+  "service_and_usage_fees",
   "custom",
 ] as const;
 export type PartnerManagedRevenueScopeModel =
@@ -1190,13 +1193,13 @@ export function partnerReceiptTypeForRoute(route: PartnerReceiptRoute): PartnerR
 }
 
 const PARTNER_MANAGED_STAGE_1_REQUIREMENT_IDS: PartnerWalletPolicyRequirementId[] = [
-  "authoritative_launch_attribution",
+  "authoritative_revenue_source_attribution",
   "authoritative_revenue_scope_mapping",
   "authoritative_wallet_topology",
 ];
 
 const PARTNER_MANAGED_STAGE_2_REQUIREMENT_IDS: PartnerWalletPolicyRequirementId[] = [
-  "authoritative_fee_state",
+  "authoritative_payout_state",
   "authoritative_revenue_event_feed",
   "repayment_target_invariant",
   "attn_readback_and_audit_receipts",
@@ -1282,7 +1285,7 @@ function defaultPartnerManagedNotes(
   switch (stage) {
     case "stage_0_truth_discovery":
       notes.push(
-        "Keep the lane in truth-discovery until launch attribution, revenue scope, and wallet topology are at least partially supplied.",
+        "Keep the lane in truth-discovery until revenue-source attribution, revenue scope, and wallet topology are at least partially supplied.",
       );
       break;
     case "stage_1_platform_counterparty_mvp":

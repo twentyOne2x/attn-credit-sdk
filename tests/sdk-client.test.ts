@@ -41,7 +41,7 @@ test("sdk exposes a partner-managed wallet policy template for private-treasury 
     private_treasury_financing: "manual_operator_release",
     repayment_enforcement_class: "partner_policy_plus_attn_verifier",
     stateByRequirementId: {
-      authoritative_launch_attribution: "verified",
+      authoritative_revenue_source_attribution: "verified",
       repayment_target_invariant: "partial",
     },
     noteByRequirementId: {
@@ -55,9 +55,9 @@ test("sdk exposes a partner-managed wallet policy template for private-treasury 
   assert.equal(template.repayment_enforcement_class, "partner_policy_plus_attn_verifier");
   assert.equal(template.requirements.length, 12);
   assert.deepEqual(
-    template.requirements.find((entry) => entry.requirement_id === "authoritative_launch_attribution"),
+    template.requirements.find((entry) => entry.requirement_id === "authoritative_revenue_source_attribution"),
     {
-      requirement_id: "authoritative_launch_attribution",
+      requirement_id: "authoritative_revenue_source_attribution",
       state: "verified",
     },
   );
@@ -78,10 +78,10 @@ test("sdk classifies the highest honest partner-managed stage from requirement t
     private_treasury_financing: "manual_operator_release",
     repayment_enforcement_class: "partner_policy_plus_attn_verifier",
     stateByRequirementId: {
-      authoritative_launch_attribution: "verified",
+      authoritative_revenue_source_attribution: "verified",
       authoritative_revenue_scope_mapping: "verified",
       authoritative_wallet_topology: "verified",
-      authoritative_fee_state: "verified",
+      authoritative_payout_state: "verified",
       authoritative_revenue_event_feed: "verified",
       repayment_target_invariant: "partial",
       attn_readback_and_audit_receipts: "partial",
@@ -117,7 +117,7 @@ test("sdk builds a partner-managed evidence pack and drift signal without implyi
     display_name: "Partner Demo",
     chain: "solana",
     cluster: "mainnet-beta",
-    revenue_scope_model: "creator_and_service_fees",
+    revenue_scope_model: "service_and_usage_fees",
     payout_topology_source: {
       source_id: "partner_api/payout_topology",
       source_kind: "api",
@@ -230,7 +230,7 @@ test("sdk exposes partner-managed parsers for validated integration payloads", (
       private_treasury_financing: "manual_operator_release",
       repayment_enforcement_class: "partner_policy_plus_attn_verifier",
       stateByRequirementId: {
-        authoritative_launch_attribution: "verified",
+        authoritative_revenue_source_attribution: "verified",
       },
     }),
   );
@@ -241,7 +241,7 @@ test("sdk exposes partner-managed parsers for validated integration payloads", (
       display_name: "Partner Demo",
       chain: "solana",
       cluster: "mainnet-beta",
-      revenue_scope_model: "creator_and_service_fees",
+      revenue_scope_model: "service_and_usage_fees",
       payout_topology_source: {
         source_id: "partner_demo/api/payout_topology",
         source_kind: "api",

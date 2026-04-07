@@ -4,7 +4,7 @@ Typed TypeScript surfaces for partner-managed attn credit integrations.
 
 ## Partner-managed integration reference
 
-If you are evaluating a partner-managed creator-fee lane with custom wallet or payout infrastructure, this README is the mechanics companion to the public integration guide.
+If you are evaluating a partner-managed revenue lane with custom wallet or payout infrastructure, this README is the mechanics companion to the public integration guide.
 
 Use the split like this:
 
@@ -30,6 +30,8 @@ This README should answer:
 2. which readbacks and receipts attn expects
 3. how attn classifies the lane
 4. how attn packages evidence and drift signals
+
+This contract is not limited to creator-fee lanes. It can describe partner-managed revenue sources such as creator fees, service fees, usage-metered x402-style flows, subscriptions, or another custom cashflow model, as long as the payout path and debt-open routing can be made explicit.
 
 ### Partner-managed interface at a glance
 
@@ -119,10 +121,10 @@ const policy = createPartnerManagedWalletPolicyTemplate({
   private_treasury_financing: "manual_operator_release",
   repayment_enforcement_class: "partner_policy_plus_attn_verifier",
   stateByRequirementId: {
-    authoritative_launch_attribution: "verified",
+    authoritative_revenue_source_attribution: "verified",
     authoritative_revenue_scope_mapping: "verified",
     authoritative_wallet_topology: "verified",
-    authoritative_fee_state: "verified",
+    authoritative_payout_state: "verified",
     authoritative_revenue_event_feed: "verified",
     repayment_target_invariant: "partial",
     debt_open_change_control: "partial",
@@ -134,7 +136,7 @@ const descriptor = createPartnerManagedIntegrationDescriptor({
   display_name: "Partner Demo",
   chain: "solana",
   cluster: "mainnet-beta",
-  revenue_scope_model: "creator_and_service_fees",
+  revenue_scope_model: "service_and_usage_fees",
   payout_topology_source: {
     source_id: "partner_demo/api/payout_topology",
     source_kind: "api",
@@ -244,10 +246,10 @@ const policy = createPartnerManagedWalletPolicyTemplate({
   private_treasury_financing: "manual_operator_release",
   repayment_enforcement_class: "partner_policy_plus_attn_verifier",
   stateByRequirementId: {
-    authoritative_launch_attribution: "verified",
+    authoritative_revenue_source_attribution: "verified",
     authoritative_revenue_scope_mapping: "verified",
     authoritative_wallet_topology: "verified",
-    authoritative_fee_state: "verified",
+    authoritative_payout_state: "verified",
     authoritative_revenue_event_feed: "verified",
     attn_readback_and_audit_receipts: "partial",
     repayment_target_invariant: "partial",
@@ -259,7 +261,7 @@ const descriptor = createPartnerManagedIntegrationDescriptor({
   display_name: "Partner Demo",
   chain: "solana",
   cluster: "mainnet-beta",
-  revenue_scope_model: "creator_and_service_fees",
+  revenue_scope_model: "service_and_usage_fees",
   payout_topology_source: {
     source_id: "partner_demo/api/payout_topology",
     source_kind: "api",

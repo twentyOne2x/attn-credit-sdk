@@ -4,6 +4,8 @@ Public TypeScript SDK surfaces for partner-managed attn credit integrations.
 
 This standalone repo is the public reference for the attn partner-managed integration contract.
 
+The core partner-managed contract is not limited to creator-fee lanes. It can describe any attributable revenue surface with a payout path, change authority, readback, and debt-open routing, including creator fees, service fees, usage fees, subscriptions, or a custom cashflow model.
+
 Included packages:
 
 1. `@attn-credit/sdk`

@@ -249,10 +249,10 @@ test("clawpump bridge maps release-mode receipts into the generic release/offboa
     private_treasury_financing: "manual_operator_release",
     repayment_enforcement_class: "partner_policy_plus_attn_verifier",
     stateByRequirementId: {
-      authoritative_launch_attribution: "verified",
+      authoritative_revenue_source_attribution: "verified",
       authoritative_revenue_scope_mapping: "verified",
       authoritative_wallet_topology: "verified",
-      authoritative_fee_state: "verified",
+      authoritative_payout_state: "verified",
       authoritative_revenue_event_feed: "verified",
       repayment_target_invariant: "verified",
       attn_readback_and_audit_receipts: "verified",
