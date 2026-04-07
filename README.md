@@ -2,7 +2,7 @@
 
 Public TypeScript SDK surfaces for partner-managed attn credit integrations.
 
-This standalone repo exists so counterparties can review the integration contract without needing access to the private `attn-credit` monorepo.
+This standalone repo is the public reference for the attn partner-managed integration contract.
 
 Included packages:
 
@@ -34,4 +34,3 @@ pnpm test
 License:
 
 Apache-2.0. Commercial use is allowed under the Apache-2.0 terms.
-
