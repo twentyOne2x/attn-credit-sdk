@@ -1,0 +1,37 @@
+{
+  "name": "@attn-credit/sdk",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./settlement": {
+      "types": "./dist/settlement.d.ts",
+      "default": "./dist/settlement.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./eip8183": {
+      "types": "./dist/eip8183.d.ts",
+      "default": "./dist/eip8183.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/schema.ts src/eip8183.ts src/settlement.ts --format cjs --dts --sourcemap --clean",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/twentyOne2x/attn-credit-sdk.git",
+    "directory": "packages/sdk"
+  },
+  "dependencies": {
+    "zod": "4.3.6"
+  }
+}
