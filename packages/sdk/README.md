@@ -11,6 +11,12 @@ Use the split like this:
 1. the public doc explains guarantees, stages, evidence, and policy thresholds
 2. this README explains the exact interface and payload surfaces attn expects
 
+Public references:
+
+1. integration guide: [docs.attn.markets/users/partner-managed-creator-fee-integration](https://docs.attn.markets/users/partner-managed-creator-fee-integration)
+2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
+3. standalone SDK repo: [twentyOne2x/attn-credit-sdk](https://github.com/twentyOne2x/attn-credit-sdk)
+
 The public doc should answer:
 
 1. what this setup is for

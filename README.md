@@ -18,9 +18,10 @@ Use the public docs and the SDK together:
 
 Key references:
 
-1. public integration guide: `docs.attn.markets/users/partner-managed-creator-fee-integration`
-2. SDK package README: `packages/sdk/README.md`
-3. reference adapter README: `packages/clawpump/README.md`
+1. public integration guide: [docs.attn.markets/users/partner-managed-creator-fee-integration](https://docs.attn.markets/users/partner-managed-creator-fee-integration)
+2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
+3. SDK package README: [packages/sdk/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/packages/sdk/README.md)
+4. reference adapter README: [packages/clawpump/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/packages/clawpump/README.md)
 
 Local verification:
 

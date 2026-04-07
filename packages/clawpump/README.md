@@ -2,6 +2,11 @@
 
 Reference adapter primitives for a ClawPump-style backend-native lane.
 
+Public references:
+1. integration guide: [docs.attn.markets/users/partner-managed-creator-fee-integration](https://docs.attn.markets/users/partner-managed-creator-fee-integration)
+2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
+3. generic SDK contract: [packages/sdk/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/packages/sdk/README.md)
+
 This package is intentionally:
 1. internal-first
 2. server-side
