@@ -46,7 +46,7 @@ pnpm run harness:clawpump-mock-pilot -- \
 
 That command writes a timestamped run directory containing partner snapshots, SDK artifacts, NDJSON logs, and an optional attn catalog snapshot.
 
-If you want to package clawpump-style partner exports instead of a mock run, use the file-backed command:
+If you want to package partner-provided exports instead of a mock run, use the file-backed command:
 
 ```bash
 pnpm run harness:clawpump-pack-from-files -- \
@@ -100,7 +100,7 @@ pnpm run harness:clawpump-mock-pilot -- \
   --control-profile-id attn_default
 ```
 
-That attn capabilities snapshot is about the current hosted fallback contract only. It is not proof that a partner-managed clawpump wallet stack already matches that runtime lane.
+That attn capabilities snapshot is about the current hosted fallback contract only. It is not proof that a partner-managed wallet stack already matches that runtime lane.
 
 Comparative matrix run:
 

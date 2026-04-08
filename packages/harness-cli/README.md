@@ -41,7 +41,7 @@ pnpm run harness:clawpump-mock-pilot -- \
   --attn-base-url https://app.attn.markets
 ```
 
-If you want to package clawpump-style partner exports instead of a mock run, use:
+If you want to package partner-provided exports instead of a mock run, use:
 
 ```bash
 pnpm run harness:clawpump-pack-from-files -- \
