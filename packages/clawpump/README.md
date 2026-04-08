@@ -54,6 +54,7 @@ Proof posture:
 1. this package only proves the typed adapter contract and deterministic mock behavior
 2. it does not yet prove live ClawPump backend access
 3. it does not yet prove a real repayment-mode pilot against partner infrastructure
+4. the fastest truthful partner start is now the file-backed harness path in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md), which packages partner exports/readbacks without pretending the hosted attn callable fallback already matches the clawpump lane
 
 How this feeds the generic SDK contract:
 1. this package is one concrete backend-native source for the partner-managed SDK interface in `@attn-credit/sdk`
@@ -65,3 +66,13 @@ How this feeds the generic SDK contract:
 3. drift or control changes discovered here should be forwarded into the shared SDK drift signal instead of staying as a ClawPump-only status note
 4. it is not itself the policy or invariant proof
 5. do not reinterpret the adapter package as proof of borrower-owned Swig parity, payout-control parity, or public/prod readiness
+
+Fresh repo rule:
+1. in a new repo, consume this adapter or the generic SDK contract instead of re-declaring the receipt and classifier shapes,
+2. keep local implementation work focused on transport, auth, and partner DTO normalization,
+3. and do not claim harness or test commands in README or scripts unless those commands really exist and pass.
+
+Practical bootstrap:
+1. clone `https://github.com/twentyOne2x/attn-credit-sdk`
+2. run the file-backed harness command from the root README
+3. only then build a separate repo around the exported adapter or SDK surfaces

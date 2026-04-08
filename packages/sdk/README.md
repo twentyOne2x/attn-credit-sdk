@@ -107,6 +107,42 @@ Use the contract in this order:
 5. package one reviewable artifact with `createPartnerManagedEvidencePack(...)`
 6. emit `createPartnerManagedDriftSignal(...)` when debt-open routing, payout authority, or incident posture changes materially
 
+### Fresh repo rule
+
+In a fresh external repo, do not start by copying these contract types into local files.
+
+The new code should usually be limited to:
+
+1. partner auth and transport
+2. partner DTO normalization
+3. partner export or readback generation
+4. adapter glue into this package or the retained-run harness
+
+Treat a fresh repo as real progress only when:
+
+1. it consumes the SDK or harness contract instead of restating it,
+2. it can package one retained file-backed run from partner artifacts,
+3. its own `typecheck`, `build`, and `test` commands pass,
+4. and its README or scripts do not claim commands that are not implemented.
+
+Recommended first move in a blind external pass:
+
+```bash
+git clone https://github.com/twentyOne2x/attn-credit-sdk
+cd attn-credit-sdk
+pnpm install
+pnpm build
+pnpm run harness:clawpump-pack-from-files -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/clawpump/launch.json \
+  --payout-topology ./examples/clawpump/payout-topology.json \
+  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
+  --revenue-events ./examples/clawpump/revenue-events.json \
+  --repayment-mode ./examples/clawpump/repayment-mode.json
+```
+
+Only after that baseline run should a separate integration repo be created around the public SDK contract.
+
 ### Compact partner-managed example
 
 ```ts
@@ -197,7 +233,9 @@ const evidencePack = createPartnerManagedEvidencePack({
 
 For one concrete backend-native mapping into this generic contract, use [`@attn-credit/clawpump`](../clawpump/README.md) and its bridge helpers in [`sdkBridge.ts`](../clawpump/src/sdkBridge.ts).
 
-Quick start:
+If you want to package partner-provided clawpump exports or readbacks into retained SDK artifacts, start with the harness command in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md) instead of guessing a hosted attn tuple.
+
+Quick start for the current hosted attn callable fallback:
 
 ```ts
 import { createAttnClient } from "@attn-credit/sdk";
@@ -208,19 +246,21 @@ const client = createAttnClient({
 
 const capabilities = await client.solana.capabilities({
   cluster: "mainnet-beta",
-  preset_id: "solana_borrower_privy_only",
-  creator_ingress_mode: "direct-to-swig",
-  control_profile_id: "partner_managed_light",
+  preset_id: "solana_borrower_legacy_swig",
+  creator_ingress_mode: "via-borrower",
+  control_profile_id: "attn_default",
 });
 
 const quote = await client.solana.checkCredit({
   cluster: "mainnet-beta",
-  preset_id: "solana_borrower_privy_only",
-  creator_ingress_mode: "direct-to-swig",
-  control_profile_id: "partner_managed_light",
+  preset_id: "solana_borrower_legacy_swig",
+  creator_ingress_mode: "via-borrower",
+  control_profile_id: "attn_default",
   mint: "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
 });
 ```
+
+That `createAttnClient(...)` example is about the current hosted attn callable fallback contract. It is not the same thing as a partner-managed clawpump wallet lane, and it should not be presented to a partner as if it were their start contract.
 
 For partner-managed wallet infra, the canonical external contract now consists of:
 1. one policy summary
@@ -381,6 +421,8 @@ console.log(SDK_CLIENT_DEFAULTS.chain); // solana
 console.log(SDK_CLIENT_DEFAULTS.creator_ingress_mode); // direct-to-swig
 console.log(partnerReceiptTypeForRoute("action")); // partner_action_receipt
 ```
+
+Treat those exported client defaults as attn client defaults only. For a partner-managed clawpump start pack, prefer explicit inputs and the harness/file-backed evidence path over relying on generic attn route defaults.
 
 The public client is now explicitly chain-aware without flattening the adapters into one execution engine:
 

@@ -27,6 +27,8 @@ async function runCli(args: string[]) {
       artifact_paths: Record<string, string>;
       attn_catalog_snapshot: boolean;
       attn_capabilities_snapshot: boolean;
+      attn_snapshot_scope: string;
+      attn_snapshot_note: string;
       failures: Array<{ step: string; message: string; code?: string }>;
     },
   };
@@ -41,6 +43,8 @@ test("partner harness CLI emits a retained run directory with SDK artifacts and 
   assert.equal(result.summary.claim_level, "underwriting_compatible");
   assert.equal(result.summary.attn_catalog_snapshot, false);
   assert.equal(result.summary.attn_capabilities_snapshot, false);
+  assert.equal(result.summary.attn_snapshot_scope, "none");
+  assert.match(result.summary.attn_snapshot_note, /no attn snapshot/i);
   assert.ok(result.summary.artifact_paths.sdk_evidence_pack);
   assert.ok(result.summary.artifact_paths.partner_payout_topology);
 
@@ -167,9 +171,11 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
       "partner_managed_light",
     ]);
 
-    assert.equal(result.summary.ok, true);
-    assert.equal(result.summary.attn_catalog_snapshot, true);
-    assert.equal(result.summary.attn_capabilities_snapshot, true);
+  assert.equal(result.summary.ok, true);
+  assert.equal(result.summary.attn_catalog_snapshot, true);
+  assert.equal(result.summary.attn_capabilities_snapshot, true);
+  assert.equal(result.summary.attn_snapshot_scope, "current_callable_fallback_tuple");
+  assert.match(result.summary.attn_snapshot_note, /current hosted callable fallback tuple/i);
 
     const catalogFile = await readFile(result.summary.artifact_paths.attn_catalog, "utf8");
     const capabilitiesFile = await readFile(result.summary.artifact_paths.attn_capabilities, "utf8");
@@ -217,4 +223,49 @@ test("partner harness CLI can retain a small scenario matrix for comparative ana
   const matrixLogFile = await readFile(path.join(matrixSummary.matrix_dir, "logs", "events.ndjson"), "utf8");
   assert.match(matrixSummaryFile, /payout_topology_unavailable/);
   assert.match(matrixLogFile, /repayment_activation_unsupported/);
+});
+
+test("partner harness CLI can package clawpump-style partner files into retained SDK artifacts", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-files-"));
+  const result = await runCli([
+    "clawpump-pack-from-files",
+    "--out-dir",
+    outDir,
+    "--launch",
+    path.join(REPO_ROOT, "examples", "clawpump", "launch.json"),
+    "--payout-topology",
+    path.join(REPO_ROOT, "examples", "clawpump", "payout-topology.json"),
+    "--creator-fee-state",
+    path.join(REPO_ROOT, "examples", "clawpump", "creator-fee-state.json"),
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "clawpump", "revenue-events.json"),
+    "--repayment-mode",
+    path.join(REPO_ROOT, "examples", "clawpump", "repayment-mode.json"),
+  ]);
+
+  assert.equal(result.summary.ok, true);
+  assert.equal(result.summary.stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(result.summary.claim_level, "underwriting_compatible");
+  assert.equal(result.summary.attn_snapshot_scope, "none");
+  assert.ok(result.summary.artifact_paths.partner_launch);
+  assert.ok(result.summary.artifact_paths.partner_revenue_events);
+  assert.ok(result.summary.artifact_paths.partner_repayment_mode_receipt);
+
+  const summaryFile = await readFile(result.summary.artifact_paths.summary, "utf8");
+  const evidencePackFile = await readFile(result.summary.artifact_paths.sdk_evidence_pack, "utf8");
+  const logFile = await readFile(path.join(result.summary.run_dir, "logs", "events.ndjson"), "utf8");
+
+  const summaryJson = JSON.parse(summaryFile) as { stage: string; attn_snapshot_scope: string };
+  const evidencePackJson = JSON.parse(evidencePackFile) as {
+    descriptor: { partner_id: string; display_name: string };
+    assessment: { stage: string };
+  };
+
+  assert.equal(summaryJson.stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(summaryJson.attn_snapshot_scope, "none");
+  assert.equal(evidencePackJson.descriptor.partner_id, "clawpump");
+  assert.equal(evidencePackJson.descriptor.display_name, "ClawPump");
+  assert.equal(evidencePackJson.assessment.stage, "stage_2_observable_payout_path_mvp");
+  assert.match(logFile, /inputs\.payout_topology/);
+  assert.match(logFile, /partner\.writeRepaymentModeReceipt/);
 });
