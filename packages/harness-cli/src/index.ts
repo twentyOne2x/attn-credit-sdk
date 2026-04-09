@@ -69,12 +69,14 @@ type CanonicalCommandName =
   | "partner-managed-mock-pilot"
   | "partner-managed-mock-matrix"
   | "partner-managed-pack-from-files"
-  | "partner-managed-doctor";
+  | "partner-managed-validate";
 type AcceptedCommandName =
   | CanonicalCommandName
+  | "partner-managed-doctor"
   | "clawpump-mock-pilot"
   | "clawpump-mock-matrix"
   | "clawpump-pack-from-files"
+  | "clawpump-validate"
   | "clawpump-doctor";
 type AttnSnapshotScope = "none" | "catalog_only" | "current_callable_fallback_tuple";
 type FileInputId =
@@ -142,7 +144,7 @@ type DoctorInputStatus = {
 
 type DoctorSummary = {
   ok: boolean;
-  command: "partner-managed-doctor";
+  command: "partner-managed-validate";
   run_id: string;
   run_dir: string;
   log_path: string;
@@ -211,12 +213,14 @@ function printHelp(): void {
       "  attn-partner-harness partner-managed-mock-pilot [options]",
       "  attn-partner-harness partner-managed-mock-matrix [options]",
       "  attn-partner-harness partner-managed-pack-from-files [options]",
-      "  attn-partner-harness partner-managed-doctor [options]",
+      "  attn-partner-harness partner-managed-validate [options]",
       "",
       "Legacy compatibility aliases:",
+      "  attn-partner-harness partner-managed-doctor [options]",
       "  attn-partner-harness clawpump-mock-pilot [options]",
       "  attn-partner-harness clawpump-mock-matrix [options]",
       "  attn-partner-harness clawpump-pack-from-files [options]",
+      "  attn-partner-harness clawpump-validate [options]",
       "  attn-partner-harness clawpump-doctor [options]",
       "",
       "Options:",
@@ -337,11 +341,13 @@ const COMMAND_ALIASES: Record<AcceptedCommandName, CanonicalCommandName> = {
   "partner-managed-mock-pilot": "partner-managed-mock-pilot",
   "partner-managed-mock-matrix": "partner-managed-mock-matrix",
   "partner-managed-pack-from-files": "partner-managed-pack-from-files",
-  "partner-managed-doctor": "partner-managed-doctor",
+  "partner-managed-validate": "partner-managed-validate",
+  "partner-managed-doctor": "partner-managed-validate",
   "clawpump-mock-pilot": "partner-managed-mock-pilot",
   "clawpump-mock-matrix": "partner-managed-mock-matrix",
   "clawpump-pack-from-files": "partner-managed-pack-from-files",
-  "clawpump-doctor": "partner-managed-doctor",
+  "clawpump-validate": "partner-managed-validate",
+  "clawpump-doctor": "partner-managed-validate",
 };
 
 function isLegacyClawpumpAlias(command: AcceptedCommandName): boolean {
@@ -881,7 +887,7 @@ async function runPartnerManagedDoctor(options: CliOptions): Promise<DoctorSumma
   const failures: Array<{ step: string; message: string; code?: string }> = [];
   const snapshotScope = resolveAttnSnapshotScope(options);
 
-  await logger.log({ step: "doctor", status: "started", command: options.command });
+  await logger.log({ step: "validate", status: "started", command: options.command });
   artifactPaths.inputs = await logger.writeJson("inputs.json", {
     command: options.command,
     attn_base_url: options.attnBaseUrl ?? null,
@@ -1037,17 +1043,17 @@ async function runPartnerManagedDoctor(options: CliOptions): Promise<DoctorSumma
   const assessment = classifyPartnerManagedLane({ policy });
 
   parsePartnerManagedWalletPolicySummary(policy);
-  artifactPaths.doctor_policy_summary = await writeLoggedJson(
+  artifactPaths.validation_policy_summary = await writeLoggedJson(
     logger,
-    "doctor/policy-summary.json",
+    "validation/policy-summary.json",
     policy,
-    "doctor.writePolicySummary",
+    "validate.writePolicySummary",
   );
-  artifactPaths.doctor_stage_assessment = await writeLoggedJson(
+  artifactPaths.validation_stage_assessment = await writeLoggedJson(
     logger,
-    "doctor/stage-assessment.json",
+    "validation/stage-assessment.json",
     assessment,
-    "doctor.writeStageAssessment",
+    "validate.writeStageAssessment",
   );
 
   const packFromFilesReady = missingRequiredInputs.length === 0 && invalidInputs.length === 0;
@@ -1063,16 +1069,16 @@ async function runPartnerManagedDoctor(options: CliOptions): Promise<DoctorSumma
     options,
   });
 
-  artifactPaths.doctor_next_steps = await writeLoggedJson(
+  artifactPaths.validation_next_steps = await writeLoggedJson(
     logger,
-    "doctor/recommended-next-steps.json",
+    "validation/recommended-next-steps.json",
     recommendedNextSteps,
-    "doctor.writeRecommendedNextSteps",
+    "validate.writeRecommendedNextSteps",
   );
 
   const summary: DoctorSummary = {
     ok: firstRetainedRunReady,
-    command: "partner-managed-doctor",
+    command: "partner-managed-validate",
     run_id: path.basename(logger.runDir),
     run_dir: logger.runDir,
     log_path: logger.logPath,
@@ -1097,9 +1103,9 @@ async function runPartnerManagedDoctor(options: CliOptions): Promise<DoctorSumma
     failures,
   };
 
-  artifactPaths.summary = await logger.writeJson("doctor-summary.json", summary);
+  artifactPaths.summary = await logger.writeJson("validation-summary.json", summary);
   await logger.log({
-    step: "doctor",
+    step: "validate",
     status: summary.ok ? "ok" : "needs_action",
     artifact: artifactPaths.summary,
   });
@@ -1715,7 +1721,7 @@ async function main(): Promise<void> {
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
-  if (options.command === "partner-managed-doctor") {
+  if (options.command === "partner-managed-validate") {
     const summary = await runPartnerManagedDoctor(options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     process.exitCode = summary.ok ? 0 : 1;

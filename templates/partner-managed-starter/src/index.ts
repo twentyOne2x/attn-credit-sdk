@@ -28,7 +28,7 @@ export function resolveStarterTemplateFixture(
 
 export function buildStarterTemplateCommandArgs(
   rootDir: string,
-  command: "partner-managed-doctor" | "partner-managed-pack-from-files",
+  command: "partner-managed-validate" | "partner-managed-pack-from-files",
 ): string[] {
   return [
     command,
@@ -57,7 +57,7 @@ export function describeStarterTemplate(rootDir: string) {
         resolveStarterTemplateFixture(rootDir, fixtureId as StarterTemplateFixtureId),
       ]),
     ),
-    doctor_args: buildStarterTemplateCommandArgs(rootDir, "partner-managed-doctor"),
+    validate_args: buildStarterTemplateCommandArgs(rootDir, "partner-managed-validate"),
     pack_args: buildStarterTemplateCommandArgs(rootDir, "partner-managed-pack-from-files"),
   };
 }

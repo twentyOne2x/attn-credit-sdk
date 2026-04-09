@@ -56,7 +56,7 @@ That command writes a timestamped run directory containing partner snapshots, SD
 If you want to package partner-provided exports instead of a mock run, use the file-backed command:
 
 ```bash
-pnpm run harness:partner-managed-doctor -- \
+pnpm run harness:partner-managed-validate -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
   --payout-topology ./examples/partner-managed/payout-topology.json \
@@ -65,7 +65,7 @@ pnpm run harness:partner-managed-doctor -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-The doctor command checks whether the bundle is good enough for the first retained run, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready enough to retain.
+The validation command checks whether the bundle is good enough for the first retained run, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready enough to retain.
 
 Then package the bundle:
 
@@ -101,7 +101,7 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:partner-managed-doctor -- \
+pnpm run harness:partner-managed-validate -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
   --payout-topology ./examples/partner-managed/payout-topology.json \

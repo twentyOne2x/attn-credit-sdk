@@ -134,7 +134,7 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:partner-managed-doctor -- \
+pnpm run harness:partner-managed-validate -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
   --payout-topology ./examples/partner-managed/payout-topology.json \
@@ -150,7 +150,7 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-Only after that doctor pass and baseline retained run should a separate integration repo be created around the public SDK contract.
+Only after that validation pass and baseline retained run should a separate integration repo be created around the public SDK contract.
 
 If you want one working package layout inside the cloned repo first, start from:
 

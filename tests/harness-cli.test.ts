@@ -259,10 +259,10 @@ test("partner harness CLI can package clawpump-style partner files into retained
   assert.match(logFile, /partner\.writeRepaymentModeReceipt/);
 });
 
-test("partner harness doctor validates a full first-run bundle and recommends the pack command", async () => {
-  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-doctor-"));
+test("partner harness validate checks a full first-run bundle and recommends the pack command", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-validate-"));
   const result = await runCli([
-    "partner-managed-doctor",
+    "partner-managed-validate",
     "--out-dir",
     outDir,
     "--launch",
@@ -278,7 +278,7 @@ test("partner harness doctor validates a full first-run bundle and recommends th
   ]);
 
   assert.equal(result.summary.ok, true);
-  assert.equal(result.summary.command, "partner-managed-doctor");
+  assert.equal(result.summary.command, "partner-managed-validate");
   assert.equal(result.summary.pack_from_files_ready, true);
   assert.equal(result.summary.first_retained_run_ready, true);
   assert.equal(result.summary.current_stage, "stage_2_observable_payout_path_mvp");
@@ -289,12 +289,12 @@ test("partner harness doctor validates a full first-run bundle and recommends th
     true,
   );
 
-  const doctorSummaryFile = await readFile(result.summary.artifact_paths.summary, "utf8");
+  const validationSummaryFile = await readFile(result.summary.artifact_paths.summary, "utf8");
   const stageAssessmentFile = await readFile(
-    result.summary.artifact_paths.doctor_stage_assessment,
+    result.summary.artifact_paths.validation_stage_assessment,
     "utf8",
   );
-  const doctorSummaryJson = JSON.parse(doctorSummaryFile) as {
+  const validationSummaryJson = JSON.parse(validationSummaryFile) as {
     next_stage: string | null;
     missing_recommended_inputs: string[];
   };
@@ -302,15 +302,15 @@ test("partner harness doctor validates a full first-run bundle and recommends th
     next_requirement_ids: string[];
   };
 
-  assert.equal(doctorSummaryJson.next_stage, "stage_3_policy_bounded_first_pilot");
-  assert.deepEqual(doctorSummaryJson.missing_recommended_inputs, []);
+  assert.equal(validationSummaryJson.next_stage, "stage_3_policy_bounded_first_pilot");
+  assert.deepEqual(validationSummaryJson.missing_recommended_inputs, []);
   assert.equal(stageAssessmentJson.next_requirement_ids.length > 0, true);
 });
 
-test("partner harness doctor fails closed when required inputs are missing", async () => {
-  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-doctor-missing-"));
+test("partner harness validate fails closed when required inputs are missing", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-validate-missing-"));
   const result = await runCli([
-    "partner-managed-doctor",
+    "partner-managed-validate",
     "--out-dir",
     outDir,
     "--revenue-events",

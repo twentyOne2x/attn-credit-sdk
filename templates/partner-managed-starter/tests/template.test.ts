@@ -20,15 +20,15 @@ test("starter template fixture paths resolve to real files", async () => {
 });
 
 test("starter template command builders include the expected harness commands", () => {
-  const doctorArgs = buildStarterTemplateCommandArgs(TEMPLATE_ROOT, "partner-managed-doctor");
+  const validateArgs = buildStarterTemplateCommandArgs(TEMPLATE_ROOT, "partner-managed-validate");
   const packArgs = buildStarterTemplateCommandArgs(
     TEMPLATE_ROOT,
     "partner-managed-pack-from-files",
   );
 
-  assert.equal(doctorArgs[0], "partner-managed-doctor");
+  assert.equal(validateArgs[0], "partner-managed-validate");
   assert.equal(packArgs[0], "partner-managed-pack-from-files");
-  assert.equal(doctorArgs.includes("--revenue-events"), true);
+  assert.equal(validateArgs.includes("--revenue-events"), true);
   assert.equal(packArgs.includes("--payout-topology"), true);
 });
 

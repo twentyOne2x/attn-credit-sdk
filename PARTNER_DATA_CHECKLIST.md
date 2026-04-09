@@ -2,7 +2,7 @@
 
 Use this checklist before the first retained run.
 
-The goal is simple: gather one honest bundle of current partner data so `partner-managed-doctor` and `partner-managed-pack-from-files` can tell the truth about the lane without guessing.
+The goal is simple: gather one honest bundle of current partner data so `partner-managed-validate` and `partner-managed-pack-from-files` can tell the truth about the lane without guessing.
 
 ## Minimum pack-from-files inputs
 
@@ -50,7 +50,7 @@ Good enough for the first retained run means:
 
 ## What to do next
 
-1. run `partner-managed-doctor` on the file bundle first
+1. run `partner-managed-validate` on the file bundle first
 2. fix anything it marks as invalid or missing
 3. then run `partner-managed-pack-from-files`
 4. send the retained run directory when you want attn to review the lane

@@ -15,7 +15,7 @@ The command surface is:
 1. `partner-managed-mock-pilot`
 2. `partner-managed-mock-matrix`
 3. `partner-managed-pack-from-files`
-4. `partner-managed-doctor`
+4. `partner-managed-validate`
 
 It runs one bounded partner-managed revenue scenario and emits:
 1. raw partner-side artifacts
@@ -45,7 +45,7 @@ pnpm run harness:partner-managed-mock-pilot -- \
 If you want to package partner-provided exports instead of a mock run, use:
 
 ```bash
-pnpm run harness:partner-managed-doctor -- \
+pnpm run harness:partner-managed-validate -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
   --payout-topology ./examples/partner-managed/payout-topology.json \
@@ -54,7 +54,7 @@ pnpm run harness:partner-managed-doctor -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-That doctor pass tells you:
+That validation pass tells you:
 1. whether the minimum pack inputs are present,
 2. whether the stronger first retained run bundle is complete,
 3. which files are missing or invalid,
@@ -123,7 +123,7 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:partner-managed-doctor -- \
+pnpm run harness:partner-managed-validate -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
   --payout-topology ./examples/partner-managed/payout-topology.json \

@@ -6,7 +6,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm exec tsx --test tests/template.test.ts",
-    "partner:doctor:sample": "attn-partner-harness partner-managed-doctor --out-dir ./artifacts --launch ./fixtures/launch.json --payout-topology ./fixtures/payout-topology.json --creator-fee-state ./fixtures/creator-fee-state.json --revenue-events ./fixtures/revenue-events.json --repayment-mode ./fixtures/repayment-mode.json",
+    "partner:validate:sample": "attn-partner-harness partner-managed-validate --out-dir ./artifacts --launch ./fixtures/launch.json --payout-topology ./fixtures/payout-topology.json --creator-fee-state ./fixtures/creator-fee-state.json --revenue-events ./fixtures/revenue-events.json --repayment-mode ./fixtures/repayment-mode.json",
     "partner:pack:sample": "attn-partner-harness partner-managed-pack-from-files --out-dir ./artifacts --launch ./fixtures/launch.json --payout-topology ./fixtures/payout-topology.json --creator-fee-state ./fixtures/creator-fee-state.json --revenue-events ./fixtures/revenue-events.json --repayment-mode ./fixtures/repayment-mode.json"
   },
   "dependencies": {

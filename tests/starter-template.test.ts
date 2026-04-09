@@ -24,19 +24,19 @@ test("starter template publishes only working scripts and sample harness command
   await runPnpm(["--dir", TEMPLATE_DIR, "build"]);
   await runPnpm(["--dir", TEMPLATE_DIR, "test"]);
 
-  const doctorRun = await runPnpm(["--dir", TEMPLATE_DIR, "--silent", "run", "partner:doctor:sample"]);
-  const doctor = JSON.parse(doctorRun.stdout.trim()) as {
+  const validateRun = await runPnpm(["--dir", TEMPLATE_DIR, "--silent", "run", "partner:validate:sample"]);
+  const validate = JSON.parse(validateRun.stdout.trim()) as {
     command: string;
     pack_from_files_ready: boolean;
     first_retained_run_ready: boolean;
     recommended_commands: string[];
   };
 
-  assert.equal(doctor.command, "partner-managed-doctor");
-  assert.equal(doctor.pack_from_files_ready, true);
-  assert.equal(doctor.first_retained_run_ready, true);
+  assert.equal(validate.command, "partner-managed-validate");
+  assert.equal(validate.pack_from_files_ready, true);
+  assert.equal(validate.first_retained_run_ready, true);
   assert.equal(
-    doctor.recommended_commands.some((command) => command.includes("partner-managed-pack-from-files")),
+    validate.recommended_commands.some((command) => command.includes("partner-managed-pack-from-files")),
     true,
   );
 

@@ -7,7 +7,7 @@ This template is the fastest way to start from a freshly cloned `attn-credit-sdk
 Use it when you want one bounded starter package that:
 
 1. keeps the partner-specific work limited to data gathering and transport glue,
-2. runs the public doctor command before packaging,
+2. runs the public validation command before packaging,
 3. and produces one retained run directory from the public harness contract.
 
 ## Local verification inside the cloned SDK repo
@@ -20,7 +20,7 @@ pnpm build
 pnpm --dir templates/partner-managed-starter typecheck
 pnpm --dir templates/partner-managed-starter build
 pnpm --dir templates/partner-managed-starter test
-pnpm --dir templates/partner-managed-starter run partner:doctor:sample
+pnpm --dir templates/partner-managed-starter run partner:validate:sample
 pnpm --dir templates/partner-managed-starter run partner:pack:sample
 ```
 
