@@ -2,8 +2,23 @@
   "name": "@attn-credit/sdk",
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/twentyOne2x/attn-credit-sdk",
+  "bugs": {
+    "url": "https://github.com/twentyOne2x/attn-credit-sdk/issues"
+  },
+  "keywords": [
+    "attn",
+    "credit",
+    "sdk",
+    "partner-managed",
+    "creator-fees"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -30,6 +45,9 @@
     "type": "git",
     "url": "https://github.com/twentyOne2x/attn-credit-sdk.git",
     "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "zod": "4.3.6"

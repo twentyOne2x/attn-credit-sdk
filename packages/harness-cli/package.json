@@ -2,8 +2,23 @@
   "name": "@attn-credit/partner-managed-harness-cli",
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/twentyOne2x/attn-credit-sdk",
+  "bugs": {
+    "url": "https://github.com/twentyOne2x/attn-credit-sdk/issues"
+  },
+  "keywords": [
+    "attn",
+    "credit",
+    "cli",
+    "harness",
+    "partner-managed"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "bin": {
     "attn-partner-harness": "dist/index.js"
   },
@@ -21,6 +36,9 @@
     "type": "git",
     "url": "https://github.com/twentyOne2x/attn-credit-sdk.git",
     "directory": "packages/harness-cli"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@attn-credit/clawpump": "workspace:*",

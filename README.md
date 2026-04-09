@@ -15,6 +15,13 @@ Included packages:
 3. `@attn-credit/partner-managed-harness-cli`
    A retained-run CLI harness that executes the SDK contract, emits logs and artifacts, and snapshots attn compatibility surfaces when requested.
 
+Included self-serve assets:
+
+1. [`PARTNER_DATA_CHECKLIST.md`](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/PARTNER_DATA_CHECKLIST.md)
+   Plain-English checklist for the first retained run bundle.
+2. [`templates/partner-managed-starter`](https://github.com/twentyOne2x/attn-credit-sdk/tree/main/templates/partner-managed-starter)
+   A working starter template inside the cloned SDK repo.
+
 Use the public docs and the SDK together:
 
 1. the public guide explains guarantees, stages, and evidence requirements
@@ -49,6 +56,20 @@ That command writes a timestamped run directory containing partner snapshots, SD
 If you want to package partner-provided exports instead of a mock run, use the file-backed command:
 
 ```bash
+pnpm run harness:partner-managed-doctor -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
+```
+
+The doctor command checks whether the bundle is good enough for the first retained run, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready enough to retain.
+
+Then package the bundle:
+
+```bash
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
@@ -59,6 +80,10 @@ pnpm run harness:partner-managed-pack-from-files -- \
 ```
 
 That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It packages partner-provided readbacks into retained receipts, descriptor output, stage assessment, and evidence-pack artifacts without pretending the partner has adopted the current attn callable fallback lane.
+
+If you are not sure what data to gather first, start with:
+
+- [PARTNER_DATA_CHECKLIST.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/PARTNER_DATA_CHECKLIST.md)
 
 Legacy `clawpump-*` harness commands still exist as compatibility aliases for the reference adapter. Public docs should prefer the `partner-managed-*` names.
 
@@ -76,6 +101,13 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
+pnpm run harness:partner-managed-doctor -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
@@ -86,6 +118,10 @@ pnpm run harness:partner-managed-pack-from-files -- \
 ```
 
 That is the intended first move for a blind external implementation. Clone the public repo and execute the retained file-backed path before you attempt a separate integration repo.
+
+If you want a working package scaffold inside that cloned repo, use:
+
+- [templates/partner-managed-starter](https://github.com/twentyOne2x/attn-credit-sdk/tree/main/templates/partner-managed-starter)
 
 Recommended separate-repo wiring after that baseline:
 
@@ -134,3 +170,8 @@ That command retains multiple scenario runs side by side so you can compare the 
 License:
 
 Apache-2.0. Commercial use is allowed under the Apache-2.0 terms.
+
+Publish readiness:
+
+- public packages are pack-verifiable from this repo with `pnpm run pack:verify`
+- actual npm publication still requires registry auth on the current machine

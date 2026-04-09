@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { mkdir, appendFile, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
@@ -54,17 +56,34 @@ const DEFAULT_PARTNER_ID = "partner_demo";
 const DEFAULT_DISPLAY_NAME = "Partner Demo";
 const LEGACY_DEFAULT_PARTNER_ID = "clawpump";
 const LEGACY_DEFAULT_DISPLAY_NAME = "ClawPump";
+const REQUIRED_FOR_PACK_INPUT_IDS: FileInputId[] = ["payout_topology", "revenue_events"];
+const RECOMMENDED_FIRST_RUN_INPUT_IDS: FileInputId[] = [
+  "launch",
+  "payout_topology",
+  "creator_fee_state",
+  "revenue_events",
+  "repayment_mode",
+];
 
 type CanonicalCommandName =
   | "partner-managed-mock-pilot"
   | "partner-managed-mock-matrix"
-  | "partner-managed-pack-from-files";
+  | "partner-managed-pack-from-files"
+  | "partner-managed-doctor";
 type AcceptedCommandName =
   | CanonicalCommandName
   | "clawpump-mock-pilot"
   | "clawpump-mock-matrix"
-  | "clawpump-pack-from-files";
+  | "clawpump-pack-from-files"
+  | "clawpump-doctor";
 type AttnSnapshotScope = "none" | "catalog_only" | "current_callable_fallback_tuple";
+type FileInputId =
+  | "launch"
+  | "payout_topology"
+  | "creator_fee_state"
+  | "revenue_events"
+  | "repayment_mode";
+type InputArtifactState = "ok" | "missing" | "invalid";
 
 type CliOptions = {
   command: CanonicalCommandName;
@@ -111,6 +130,43 @@ type RunSummary = {
   failures: Array<{ step: string; message: string; code?: string }>;
 };
 
+type DoctorInputStatus = {
+  input_id: FileInputId;
+  required_for_pack: boolean;
+  recommended_for_first_run: boolean;
+  status: InputArtifactState;
+  source_path: string | null;
+  artifact_path: string | null;
+  message: string | null;
+};
+
+type DoctorSummary = {
+  ok: boolean;
+  command: "partner-managed-doctor";
+  run_id: string;
+  run_dir: string;
+  log_path: string;
+  pack_from_files_ready: boolean;
+  first_retained_run_ready: boolean;
+  current_stage: string;
+  current_claim_level: string;
+  next_stage: string | null;
+  next_requirement_ids: string[];
+  residual_risk_codes: string[];
+  missing_required_inputs: FileInputId[];
+  missing_recommended_inputs: FileInputId[];
+  invalid_inputs: FileInputId[];
+  input_status: DoctorInputStatus[];
+  recommended_commands: string[];
+  recommended_next_steps: string[];
+  attn_catalog_snapshot: boolean;
+  attn_capabilities_snapshot: boolean;
+  attn_snapshot_scope: AttnSnapshotScope;
+  attn_snapshot_note: string;
+  artifact_paths: Record<string, string>;
+  failures: Array<{ step: string; message: string; code?: string }>;
+};
+
 type MatrixSummary = {
   ok: boolean;
   command: "partner-managed-mock-matrix";
@@ -140,6 +196,14 @@ async function writeLoggedJson(
   return artifactPath;
 }
 
+type LoadedJsonArtifact<T> = {
+  value: T | null;
+  state: InputArtifactState;
+  sourcePath: string | null;
+  artifactPath: string | null;
+  message: string | null;
+};
+
 function printHelp(): void {
   process.stdout.write(
     [
@@ -147,11 +211,13 @@ function printHelp(): void {
       "  attn-partner-harness partner-managed-mock-pilot [options]",
       "  attn-partner-harness partner-managed-mock-matrix [options]",
       "  attn-partner-harness partner-managed-pack-from-files [options]",
+      "  attn-partner-harness partner-managed-doctor [options]",
       "",
       "Legacy compatibility aliases:",
       "  attn-partner-harness clawpump-mock-pilot [options]",
       "  attn-partner-harness clawpump-mock-matrix [options]",
       "  attn-partner-harness clawpump-pack-from-files [options]",
+      "  attn-partner-harness clawpump-doctor [options]",
       "",
       "Options:",
       "  --out-dir <path>                 Output root for retained runs",
@@ -271,9 +337,11 @@ const COMMAND_ALIASES: Record<AcceptedCommandName, CanonicalCommandName> = {
   "partner-managed-mock-pilot": "partner-managed-mock-pilot",
   "partner-managed-mock-matrix": "partner-managed-mock-matrix",
   "partner-managed-pack-from-files": "partner-managed-pack-from-files",
+  "partner-managed-doctor": "partner-managed-doctor",
   "clawpump-mock-pilot": "partner-managed-mock-pilot",
   "clawpump-mock-matrix": "partner-managed-mock-matrix",
   "clawpump-pack-from-files": "partner-managed-pack-from-files",
+  "clawpump-doctor": "partner-managed-doctor",
 };
 
 function isLegacyClawpumpAlias(command: AcceptedCommandName): boolean {
@@ -413,6 +481,61 @@ function parseInjectedFailures(values: string[]): Partial<Record<ClawPumpMockOpe
   return failures;
 }
 
+async function loadJsonArtifact<T>(args: {
+  logger: Logger;
+  filePath: string | undefined;
+  label: FileInputId;
+  schema: z.ZodType<T>;
+}): Promise<LoadedJsonArtifact<T>> {
+  if (!args.filePath) {
+    return {
+      value: null,
+      state: "missing",
+      sourcePath: null,
+      artifactPath: null,
+      message: null,
+    };
+  }
+
+  const sourcePath = path.resolve(args.filePath);
+  await args.logger.log({
+    step: `inputs.${args.label}`,
+    status: "started",
+    source_path: sourcePath,
+  });
+
+  try {
+    const raw = JSON.parse(await readFile(args.filePath, "utf8")) as unknown;
+    const parsed = args.schema.parse(raw);
+    const artifactPath = await args.logger.writeJson(
+      `partner/${args.label.replace(/_/g, "-")}.json`,
+      parsed,
+    );
+    await args.logger.log({
+      step: `inputs.${args.label}`,
+      status: "ok",
+      artifact: artifactPath,
+    });
+    return {
+      value: parsed,
+      state: "ok",
+      sourcePath,
+      artifactPath,
+      message: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await args.logger.log({ step: `inputs.${args.label}`, status: "error", message });
+    return {
+      value: null,
+      state: "invalid",
+      sourcePath,
+      artifactPath: null,
+      message,
+    };
+  }
+}
+
 async function readJsonArtifact<T>(
   args: {
     logger: Logger;
@@ -424,7 +547,18 @@ async function readJsonArtifact<T>(
     artifactPaths: Record<string, string>;
   },
 ): Promise<T | null> {
-  if (!args.filePath) {
+  const result = await loadJsonArtifact({
+    logger: args.logger,
+    filePath: args.filePath,
+    label: args.label as FileInputId,
+    schema: args.schema,
+  });
+
+  if (result.artifactPath) {
+    args.artifactPaths[`input_${args.label}`] = result.artifactPath;
+  }
+
+  if (result.state === "missing") {
     if (args.required) {
       const message = `missing required --${args.label.replace(/_/g, "-")} input`;
       args.failures.push({ step: `inputs.${args.label}`, message, code: "missing_input" });
@@ -433,24 +567,16 @@ async function readJsonArtifact<T>(
     return null;
   }
 
-  await args.logger.log({
-    step: `inputs.${args.label}`,
-    status: "started",
-    source_path: path.resolve(args.filePath),
-  });
-  try {
-    const raw = JSON.parse(await readFile(args.filePath, "utf8")) as unknown;
-    const parsed = args.schema.parse(raw);
-    const artifactPath = await args.logger.writeJson(`partner/${args.label.replace(/_/g, "-")}.json`, parsed);
-    args.artifactPaths[`input_${args.label}`] = artifactPath;
-    await args.logger.log({ step: `inputs.${args.label}`, status: "ok", artifact: artifactPath });
-    return parsed;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    args.failures.push({ step: `inputs.${args.label}`, message, code: "invalid_input" });
-    await args.logger.log({ step: `inputs.${args.label}`, status: "error", message });
+  if (result.state === "invalid") {
+    args.failures.push({
+      step: `inputs.${args.label}`,
+      message: result.message ?? "invalid input",
+      code: "invalid_input",
+    });
     return null;
   }
+
+  return result.value;
 }
 
 function routeRequirementState(mode: ClawPumpRepaymentMode | null): PartnerWalletPolicyRequirementState {
@@ -583,6 +709,117 @@ function derivePolicy(args: {
   });
 }
 
+function nextStageFor(stage: string): string | null {
+  switch (stage) {
+    case "stage_0_truth_discovery":
+      return "stage_1_platform_counterparty_mvp";
+    case "stage_1_platform_counterparty_mvp":
+      return "stage_2_observable_payout_path_mvp";
+    case "stage_2_observable_payout_path_mvp":
+      return "stage_3_policy_bounded_first_pilot";
+    case "stage_3_policy_bounded_first_pilot":
+      return "stage_4_full_partner_managed_standard";
+    default:
+      return null;
+  }
+}
+
+function buildSourceFilesSummary(options: CliOptions) {
+  return {
+    launch: options.launchPath ?? null,
+    payout_topology: options.payoutTopologyPath ?? null,
+    creator_fee_state: options.creatorFeeStatePath ?? null,
+    revenue_events: options.revenueEventsPath ?? null,
+    repayment_mode: options.repaymentModePath ?? null,
+  };
+}
+
+function buildPackFromFilesCommand(options: CliOptions): string {
+  const parts = [
+    "pnpm run harness:partner-managed-pack-from-files --",
+    `--out-dir ${JSON.stringify(options.outDir)}`,
+  ];
+  if (options.launchPath) parts.push(`--launch ${JSON.stringify(options.launchPath)}`);
+  if (options.payoutTopologyPath) {
+    parts.push(`--payout-topology ${JSON.stringify(options.payoutTopologyPath)}`);
+  }
+  if (options.creatorFeeStatePath) {
+    parts.push(`--creator-fee-state ${JSON.stringify(options.creatorFeeStatePath)}`);
+  }
+  if (options.revenueEventsPath) {
+    parts.push(`--revenue-events ${JSON.stringify(options.revenueEventsPath)}`);
+  }
+  if (options.repaymentModePath) {
+    parts.push(`--repayment-mode ${JSON.stringify(options.repaymentModePath)}`);
+  }
+  if (options.attnBaseUrl) parts.push(`--attn-base-url ${JSON.stringify(options.attnBaseUrl)}`);
+  if (options.presetId) parts.push(`--preset-id ${JSON.stringify(options.presetId)}`);
+  if (options.creatorIngressMode) {
+    parts.push(`--creator-ingress-mode ${JSON.stringify(options.creatorIngressMode)}`);
+  }
+  if (options.controlProfileId) {
+    parts.push(`--control-profile-id ${JSON.stringify(options.controlProfileId)}`);
+  }
+  if (options.partnerId !== DEFAULT_PARTNER_ID) {
+    parts.push(`--partner-id ${JSON.stringify(options.partnerId)}`);
+  }
+  if (options.displayName !== DEFAULT_DISPLAY_NAME) {
+    parts.push(`--display-name ${JSON.stringify(options.displayName)}`);
+  }
+  if (options.proofState !== "backend_readonly_proven") {
+    parts.push(`--proof-state ${JSON.stringify(options.proofState)}`);
+  }
+  return parts.join(" ");
+}
+
+function buildDoctorNextSteps(args: {
+  missingRequiredInputs: FileInputId[];
+  missingRecommendedInputs: FileInputId[];
+  invalidInputs: FileInputId[];
+  assessment: ReturnType<typeof classifyPartnerManagedLane>;
+  packFromFilesReady: boolean;
+  firstRetainedRunReady: boolean;
+  options: CliOptions;
+}): string[] {
+  const steps: string[] = [];
+
+  if (args.invalidInputs.length > 0) {
+    steps.push(`Fix invalid input files: ${args.invalidInputs.join(", ")}.`);
+  }
+
+  if (args.missingRequiredInputs.length > 0) {
+    steps.push(
+      `Add the minimum file-backed pack inputs first: ${args.missingRequiredInputs.join(", ")}.`,
+    );
+  }
+
+  if (args.missingRecommendedInputs.length > 0) {
+    steps.push(
+      `For a truthful first retained run, add the missing recommended inputs: ${args.missingRecommendedInputs.join(", ")}.`,
+    );
+  }
+
+  if (args.firstRetainedRunReady) {
+    steps.push("Run the retained packaging command with this exact file set.");
+    steps.push(buildPackFromFilesCommand(args.options));
+  } else if (args.packFromFilesReady) {
+    steps.push(
+      "The minimum pack-from-files bundle is present, but the first retained run is still weaker than recommended.",
+    );
+    steps.push(buildPackFromFilesCommand(args.options));
+  }
+
+  if (args.assessment.next_requirement_ids.length > 0) {
+    const targetStage = nextStageFor(args.assessment.stage);
+    const prefix = targetStage
+      ? `To reach ${targetStage}, improve`
+      : "To strengthen the lane further, improve";
+    steps.push(`${prefix}: ${args.assessment.next_requirement_ids.join(", ")}.`);
+  }
+
+  return steps;
+}
+
 async function maybeFetchAttnSnapshots(args: {
   options: CliOptions;
   logger: Logger;
@@ -636,6 +873,237 @@ async function maybeFetchAttnSnapshots(args: {
   }
 
   return { catalog, capabilities };
+}
+
+async function runPartnerManagedDoctor(options: CliOptions): Promise<DoctorSummary> {
+  const logger = await createLogger(options.outDir);
+  const artifactPaths: Record<string, string> = {};
+  const failures: Array<{ step: string; message: string; code?: string }> = [];
+  const snapshotScope = resolveAttnSnapshotScope(options);
+
+  await logger.log({ step: "doctor", status: "started", command: options.command });
+  artifactPaths.inputs = await logger.writeJson("inputs.json", {
+    command: options.command,
+    attn_base_url: options.attnBaseUrl ?? null,
+    preset_id: options.presetId ?? null,
+    creator_ingress_mode: options.creatorIngressMode ?? null,
+    control_profile_id: options.controlProfileId ?? null,
+    proof_state: options.proofState,
+    partner_id: options.partnerId,
+    display_name: options.displayName,
+    source_files: buildSourceFilesSummary(options),
+  });
+
+  const launchResult = await loadJsonArtifact({
+    logger,
+    filePath: options.launchPath,
+    label: "launch",
+    schema: zClawPumpLaunch,
+  });
+  const payoutResult = await loadJsonArtifact({
+    logger,
+    filePath: options.payoutTopologyPath,
+    label: "payout_topology",
+    schema: zClawPumpPayoutTopology,
+  });
+  const feeStateResult = await loadJsonArtifact({
+    logger,
+    filePath: options.creatorFeeStatePath,
+    label: "creator_fee_state",
+    schema: zClawPumpCreatorFeeState,
+  });
+  const revenueEventsResult = await loadJsonArtifact({
+    logger,
+    filePath: options.revenueEventsPath,
+    label: "revenue_events",
+    schema: z.array(zClawPumpRevenueEvent),
+  });
+  const repaymentModeResult = await loadJsonArtifact({
+    logger,
+    filePath: options.repaymentModePath,
+    label: "repayment_mode",
+    schema: zClawPumpRepaymentMode,
+  });
+
+  const inputStatuses: DoctorInputStatus[] = [
+    {
+      input_id: "launch",
+      required_for_pack: REQUIRED_FOR_PACK_INPUT_IDS.includes("launch"),
+      recommended_for_first_run: RECOMMENDED_FIRST_RUN_INPUT_IDS.includes("launch"),
+      status: launchResult.state,
+      source_path: launchResult.sourcePath,
+      artifact_path: launchResult.artifactPath,
+      message: launchResult.message,
+    },
+    {
+      input_id: "payout_topology",
+      required_for_pack: REQUIRED_FOR_PACK_INPUT_IDS.includes("payout_topology"),
+      recommended_for_first_run: RECOMMENDED_FIRST_RUN_INPUT_IDS.includes("payout_topology"),
+      status: payoutResult.state,
+      source_path: payoutResult.sourcePath,
+      artifact_path: payoutResult.artifactPath,
+      message: payoutResult.message,
+    },
+    {
+      input_id: "creator_fee_state",
+      required_for_pack: REQUIRED_FOR_PACK_INPUT_IDS.includes("creator_fee_state"),
+      recommended_for_first_run: RECOMMENDED_FIRST_RUN_INPUT_IDS.includes("creator_fee_state"),
+      status: feeStateResult.state,
+      source_path: feeStateResult.sourcePath,
+      artifact_path: feeStateResult.artifactPath,
+      message: feeStateResult.message,
+    },
+    {
+      input_id: "revenue_events",
+      required_for_pack: REQUIRED_FOR_PACK_INPUT_IDS.includes("revenue_events"),
+      recommended_for_first_run: RECOMMENDED_FIRST_RUN_INPUT_IDS.includes("revenue_events"),
+      status: revenueEventsResult.state,
+      source_path: revenueEventsResult.sourcePath,
+      artifact_path: revenueEventsResult.artifactPath,
+      message: revenueEventsResult.message,
+    },
+    {
+      input_id: "repayment_mode",
+      required_for_pack: REQUIRED_FOR_PACK_INPUT_IDS.includes("repayment_mode"),
+      recommended_for_first_run: RECOMMENDED_FIRST_RUN_INPUT_IDS.includes("repayment_mode"),
+      status: repaymentModeResult.state,
+      source_path: repaymentModeResult.sourcePath,
+      artifact_path: repaymentModeResult.artifactPath,
+      message: repaymentModeResult.message,
+    },
+  ];
+
+  for (const status of inputStatuses) {
+    if (status.artifact_path) {
+      artifactPaths[`input_${status.input_id}`] = status.artifact_path;
+    }
+    if (status.status === "invalid") {
+      failures.push({
+        step: `inputs.${status.input_id}`,
+        message: status.message ?? "invalid input",
+        code: "invalid_input",
+      });
+    }
+  }
+
+  if (artifactPaths.input_launch) artifactPaths.partner_launch = artifactPaths.input_launch;
+  if (artifactPaths.input_payout_topology) {
+    artifactPaths.partner_payout_topology = artifactPaths.input_payout_topology;
+  }
+  if (artifactPaths.input_creator_fee_state) {
+    artifactPaths.partner_creator_fee_state = artifactPaths.input_creator_fee_state;
+  }
+  if (artifactPaths.input_revenue_events) {
+    artifactPaths.partner_revenue_events = artifactPaths.input_revenue_events;
+  }
+  if (artifactPaths.input_repayment_mode) {
+    artifactPaths.partner_repayment_mode = artifactPaths.input_repayment_mode;
+  }
+
+  const missingRequiredInputs = inputStatuses
+    .filter((status) => status.required_for_pack && status.status === "missing")
+    .map((status) => status.input_id);
+  for (const inputId of missingRequiredInputs) {
+    failures.push({
+      step: `inputs.${inputId}`,
+      message: `missing required --${inputId.replace(/_/g, "-")} input`,
+      code: "missing_input",
+    });
+  }
+
+  const missingRecommendedInputs = inputStatuses
+    .filter((status) => status.recommended_for_first_run && status.status === "missing")
+    .map((status) => status.input_id);
+  const invalidInputs = inputStatuses
+    .filter((status) => status.status === "invalid")
+    .map((status) => status.input_id);
+
+  const attnSnapshots = await maybeFetchAttnSnapshots({
+    options,
+    logger,
+    artifactPaths,
+    failures,
+  });
+
+  const policy = deriveFileBackedPolicy({
+    launch: launchResult.value,
+    payout: payoutResult.value,
+    feeState: feeStateResult.value,
+    revenueEvents: revenueEventsResult.value,
+    repaymentMode: repaymentModeResult.value,
+    attnCatalogOk: Boolean(attnSnapshots.catalog),
+    capabilitiesOk: Boolean(attnSnapshots.capabilities),
+  });
+  const assessment = classifyPartnerManagedLane({ policy });
+
+  parsePartnerManagedWalletPolicySummary(policy);
+  artifactPaths.doctor_policy_summary = await writeLoggedJson(
+    logger,
+    "doctor/policy-summary.json",
+    policy,
+    "doctor.writePolicySummary",
+  );
+  artifactPaths.doctor_stage_assessment = await writeLoggedJson(
+    logger,
+    "doctor/stage-assessment.json",
+    assessment,
+    "doctor.writeStageAssessment",
+  );
+
+  const packFromFilesReady = missingRequiredInputs.length === 0 && invalidInputs.length === 0;
+  const firstRetainedRunReady = missingRecommendedInputs.length === 0 && invalidInputs.length === 0;
+  const recommendedCommands = packFromFilesReady ? [buildPackFromFilesCommand(options)] : [];
+  const recommendedNextSteps = buildDoctorNextSteps({
+    missingRequiredInputs,
+    missingRecommendedInputs,
+    invalidInputs,
+    assessment,
+    packFromFilesReady,
+    firstRetainedRunReady,
+    options,
+  });
+
+  artifactPaths.doctor_next_steps = await writeLoggedJson(
+    logger,
+    "doctor/recommended-next-steps.json",
+    recommendedNextSteps,
+    "doctor.writeRecommendedNextSteps",
+  );
+
+  const summary: DoctorSummary = {
+    ok: firstRetainedRunReady,
+    command: "partner-managed-doctor",
+    run_id: path.basename(logger.runDir),
+    run_dir: logger.runDir,
+    log_path: logger.logPath,
+    pack_from_files_ready: packFromFilesReady,
+    first_retained_run_ready: firstRetainedRunReady,
+    current_stage: assessment.stage,
+    current_claim_level: assessment.claim_level,
+    next_stage: nextStageFor(assessment.stage),
+    next_requirement_ids: assessment.next_requirement_ids,
+    residual_risk_codes: assessment.residual_risk_codes,
+    missing_required_inputs: missingRequiredInputs,
+    missing_recommended_inputs: missingRecommendedInputs,
+    invalid_inputs: invalidInputs,
+    input_status: inputStatuses,
+    recommended_commands: recommendedCommands,
+    recommended_next_steps: recommendedNextSteps,
+    attn_catalog_snapshot: Boolean(attnSnapshots.catalog),
+    attn_capabilities_snapshot: Boolean(attnSnapshots.capabilities),
+    attn_snapshot_scope: snapshotScope,
+    attn_snapshot_note: attnSnapshotNote(snapshotScope),
+    artifact_paths: artifactPaths,
+    failures,
+  };
+
+  artifactPaths.summary = await logger.writeJson("doctor-summary.json", summary);
+  await logger.log({
+    step: "doctor",
+    status: summary.ok ? "ok" : "needs_action",
+    artifact: artifactPaths.summary,
+  });
+  return summary;
 }
 
 async function runClawpumpMockPilot(options: CliOptions): Promise<RunSummary> {
@@ -1243,6 +1711,12 @@ async function main(): Promise<void> {
   }
   if (options.command === "partner-managed-pack-from-files") {
     const summary = await runClawpumpPackFromFiles(options);
+    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    process.exitCode = summary.ok ? 0 : 1;
+    return;
+  }
+  if (options.command === "partner-managed-doctor") {
+    const summary = await runPartnerManagedDoctor(options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     process.exitCode = summary.ok ? 0 : 1;
     return;

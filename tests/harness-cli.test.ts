@@ -19,19 +19,7 @@ async function runCli(args: string[]) {
   return {
     stdout: stdout.trim(),
     stderr: stderr.trim(),
-    summary: JSON.parse(stdout) as {
-      ok: boolean;
-      command: string;
-      run_dir: string;
-      stage: string;
-      claim_level: string;
-      artifact_paths: Record<string, string>;
-      attn_catalog_snapshot: boolean;
-      attn_capabilities_snapshot: boolean;
-      attn_snapshot_scope: string;
-      attn_snapshot_note: string;
-      failures: Array<{ step: string; message: string; code?: string }>;
-    },
+    summary: JSON.parse(stdout) as Record<string, any>,
   };
 }
 
@@ -269,6 +257,85 @@ test("partner harness CLI can package clawpump-style partner files into retained
   assert.equal(evidencePackJson.assessment.stage, "stage_2_observable_payout_path_mvp");
   assert.match(logFile, /inputs\.payout_topology/);
   assert.match(logFile, /partner\.writeRepaymentModeReceipt/);
+});
+
+test("partner harness doctor validates a full first-run bundle and recommends the pack command", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-doctor-"));
+  const result = await runCli([
+    "partner-managed-doctor",
+    "--out-dir",
+    outDir,
+    "--launch",
+    path.join(REPO_ROOT, "examples", "partner-managed", "launch.json"),
+    "--payout-topology",
+    path.join(REPO_ROOT, "examples", "partner-managed", "payout-topology.json"),
+    "--creator-fee-state",
+    path.join(REPO_ROOT, "examples", "partner-managed", "creator-fee-state.json"),
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "partner-managed", "revenue-events.json"),
+    "--repayment-mode",
+    path.join(REPO_ROOT, "examples", "partner-managed", "repayment-mode.json"),
+  ]);
+
+  assert.equal(result.summary.ok, true);
+  assert.equal(result.summary.command, "partner-managed-doctor");
+  assert.equal(result.summary.pack_from_files_ready, true);
+  assert.equal(result.summary.first_retained_run_ready, true);
+  assert.equal(result.summary.current_stage, "stage_2_observable_payout_path_mvp");
+  assert.equal(
+    result.summary.recommended_commands.some((command: string) =>
+      command.includes("partner-managed-pack-from-files"),
+    ),
+    true,
+  );
+
+  const doctorSummaryFile = await readFile(result.summary.artifact_paths.summary, "utf8");
+  const stageAssessmentFile = await readFile(
+    result.summary.artifact_paths.doctor_stage_assessment,
+    "utf8",
+  );
+  const doctorSummaryJson = JSON.parse(doctorSummaryFile) as {
+    next_stage: string | null;
+    missing_recommended_inputs: string[];
+  };
+  const stageAssessmentJson = JSON.parse(stageAssessmentFile) as {
+    next_requirement_ids: string[];
+  };
+
+  assert.equal(doctorSummaryJson.next_stage, "stage_3_policy_bounded_first_pilot");
+  assert.deepEqual(doctorSummaryJson.missing_recommended_inputs, []);
+  assert.equal(stageAssessmentJson.next_requirement_ids.length > 0, true);
+});
+
+test("partner harness doctor fails closed when required inputs are missing", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-doctor-missing-"));
+  const result = await runCli([
+    "partner-managed-doctor",
+    "--out-dir",
+    outDir,
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "partner-managed", "revenue-events.json"),
+  ]).catch((error: { stdout?: string }) => {
+    const stdout = error.stdout ?? "";
+    return {
+      stdout: stdout.trim(),
+      summary: JSON.parse(stdout) as Record<string, any>,
+    };
+  });
+
+  assert.equal(result.summary.ok, false);
+  assert.equal(result.summary.pack_from_files_ready, false);
+  assert.equal(
+    result.summary.missing_required_inputs.includes("payout_topology"),
+    true,
+  );
+  assert.equal(
+    result.summary.failures.some(
+      (failure: { step: string; code?: string }) =>
+        failure.step === "inputs.payout_topology" && failure.code === "missing_input",
+    ),
+    true,
+  );
 });
 
 test("legacy clawpump command aliases remain supported for compatibility", async () => {

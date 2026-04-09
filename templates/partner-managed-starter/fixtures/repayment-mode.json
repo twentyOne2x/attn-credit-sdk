@@ -1,0 +1,9 @@
+{
+  "mint": "clawmint11111111111111111111111111111111",
+  "mode_state": "active",
+  "repayment_target": "attnrepay111111111111111111111111111111",
+  "repayment_share_bps": 6000,
+  "activated_at": "2026-03-18T12:30:00.000Z",
+  "activated_by": "claw_operator",
+  "source_timestamp": "2026-03-18T12:30:00.000Z"
+}

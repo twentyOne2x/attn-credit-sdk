@@ -11,12 +11,15 @@
     "harness:help": "node packages/harness-cli/dist/index.js --help",
     "harness:partner-managed-mock-pilot": "node packages/harness-cli/dist/index.js partner-managed-mock-pilot",
     "harness:partner-managed-pack-from-files": "node packages/harness-cli/dist/index.js partner-managed-pack-from-files",
+    "harness:partner-managed-doctor": "node packages/harness-cli/dist/index.js partner-managed-doctor",
     "harness:partner-managed-mock-matrix": "node packages/harness-cli/dist/index.js partner-managed-mock-matrix",
     "harness:clawpump-mock-pilot": "pnpm run harness:partner-managed-mock-pilot",
     "harness:clawpump-pack-from-files": "pnpm run harness:partner-managed-pack-from-files",
+    "harness:clawpump-doctor": "pnpm run harness:partner-managed-doctor",
     "harness:clawpump-mock-matrix": "pnpm run harness:partner-managed-mock-matrix",
+    "pack:verify": "rm -rf tmp/npm-pack && mkdir -p tmp/npm-pack && pnpm -r build && pnpm --dir packages/sdk pack --pack-destination ../../tmp/npm-pack && pnpm --dir packages/clawpump pack --pack-destination ../../tmp/npm-pack && pnpm --dir packages/harness-cli pack --pack-destination ../../tmp/npm-pack",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm build && pnpm exec tsx --test tests/sdk-client.test.ts tests/clawpump-client.test.ts tests/harness-cli.test.ts"
+    "test": "pnpm build && pnpm exec tsx --test tests/sdk-client.test.ts tests/clawpump-client.test.ts tests/harness-cli.test.ts tests/starter-template.test.ts"
   },
   "devDependencies": {
     "@types/node": "20.19.32",

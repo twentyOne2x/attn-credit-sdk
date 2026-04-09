@@ -11,10 +11,11 @@ Public references:
 
 ## What this does
 
-The first command is:
+The command surface is:
 1. `partner-managed-mock-pilot`
 2. `partner-managed-mock-matrix`
 3. `partner-managed-pack-from-files`
+4. `partner-managed-doctor`
 
 It runs one bounded partner-managed revenue scenario and emits:
 1. raw partner-side artifacts
@@ -44,6 +45,25 @@ pnpm run harness:partner-managed-mock-pilot -- \
 If you want to package partner-provided exports instead of a mock run, use:
 
 ```bash
+pnpm run harness:partner-managed-doctor -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
+```
+
+That doctor pass tells you:
+1. whether the minimum pack inputs are present,
+2. whether the stronger first retained run bundle is complete,
+3. which files are missing or invalid,
+4. the current stage implied by the bundle,
+5. and the exact next packaging command when the bundle is ready enough.
+
+Then package the bundle:
+
+```bash
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
@@ -54,6 +74,11 @@ pnpm run harness:partner-managed-pack-from-files -- \
 ```
 
 That file-backed command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It retains the packaged partner readbacks and the derived SDK artifacts without implying the hosted attn callable fallback is already the same lane.
+
+If you are not sure which files to gather first, start with:
+
+- [PARTNER_DATA_CHECKLIST.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/PARTNER_DATA_CHECKLIST.md)
+- [templates/partner-managed-starter](https://github.com/twentyOne2x/attn-credit-sdk/tree/main/templates/partner-managed-starter)
 
 Legacy `clawpump-*` command names still work as compatibility aliases for the reference adapter. Public partner starts should use the `partner-managed-*` names.
 
@@ -98,6 +123,13 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
+pnpm run harness:partner-managed-doctor -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \

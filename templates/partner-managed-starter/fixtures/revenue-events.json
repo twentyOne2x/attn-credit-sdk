@@ -1,0 +1,32 @@
+[
+  {
+    "event_id": "evt_003",
+    "mint": "clawmint11111111111111111111111111111111",
+    "event_type": "creator_fee_distributed",
+    "amount_sol": 1.25,
+    "recipient": "agentwallet111111111111111111111111111111",
+    "signature": "distsig3333333333333333333333333333333333",
+    "slot": 321003,
+    "block_time": "2026-03-18T11:31:00.000Z"
+  },
+  {
+    "event_id": "evt_002",
+    "mint": "clawmint11111111111111111111111111111111",
+    "event_type": "creator_fee_claimed",
+    "amount_sol": 2.1,
+    "recipient": "devwallet11111111111111111111111111111111",
+    "signature": "claimsig22222222222222222222222222222222",
+    "slot": 321002,
+    "block_time": "2026-03-18T11:30:00.000Z"
+  },
+  {
+    "event_id": "evt_001",
+    "mint": "clawmint11111111111111111111111111111111",
+    "event_type": "creator_fee_accrued",
+    "amount_sol": 5.5,
+    "recipient": "devwallet11111111111111111111111111111111",
+    "signature": "accruesig1111111111111111111111111111111",
+    "slot": 321001,
+    "block_time": "2026-03-18T11:00:00.000Z"
+  }
+]

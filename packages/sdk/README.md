@@ -17,6 +17,8 @@ Public references:
 2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
 3. standalone SDK repo: [twentyOne2x/attn-credit-sdk](https://github.com/twentyOne2x/attn-credit-sdk)
 4. retained-run harness: [packages/harness-cli/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/packages/harness-cli/README.md)
+5. first-run checklist: [PARTNER_DATA_CHECKLIST.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/PARTNER_DATA_CHECKLIST.md)
+6. starter template: [templates/partner-managed-starter](https://github.com/twentyOne2x/attn-credit-sdk/tree/main/templates/partner-managed-starter)
 
 The public doc should answer:
 
@@ -132,6 +134,13 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
+pnpm run harness:partner-managed-doctor -- \
+  --out-dir ./tmp/harness-runs \
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \
@@ -141,7 +150,11 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-Only after that baseline run should a separate integration repo be created around the public SDK contract.
+Only after that doctor pass and baseline retained run should a separate integration repo be created around the public SDK contract.
+
+If you want one working package layout inside the cloned repo first, start from:
+
+- [templates/partner-managed-starter](https://github.com/twentyOne2x/attn-credit-sdk/tree/main/templates/partner-managed-starter)
 
 Legacy `clawpump-*` harness commands remain available as compatibility aliases for the reference adapter, but public partner starts should use the `partner-managed-*` names.
 
