@@ -1,0 +1,10 @@
+{
+  "mint": "clawmint11111111111111111111111111111111",
+  "launch_id": "claw_launch_001",
+  "launcher_platform": "clawpump",
+  "creator_wallet": "agentwallet111111111111111111111111111111",
+  "launch_authority": "devwallet11111111111111111111111111111111",
+  "created_at": "2026-03-18T10:00:00.000Z",
+  "cluster": "mainnet-beta",
+  "agent_id": "agent_001"
+}

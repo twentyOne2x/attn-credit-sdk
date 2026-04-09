@@ -21,6 +21,7 @@ async function runCli(args: string[]) {
     stderr: stderr.trim(),
     summary: JSON.parse(stdout) as {
       ok: boolean;
+      command: string;
       run_dir: string;
       stage: string;
       claim_level: string;
@@ -36,7 +37,7 @@ async function runCli(args: string[]) {
 
 test("partner harness CLI emits a retained run directory with SDK artifacts and logs", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-"));
-  const result = await runCli(["clawpump-mock-pilot", "--out-dir", outDir]);
+  const result = await runCli(["partner-managed-mock-pilot", "--out-dir", outDir]);
 
   assert.equal(result.summary.ok, true);
   assert.equal(result.summary.stage, "stage_2_observable_payout_path_mvp");
@@ -60,7 +61,7 @@ test("partner harness CLI emits a retained run directory with SDK artifacts and 
   };
 
   assert.equal(summaryJson.stage, "stage_2_observable_payout_path_mvp");
-  assert.equal(evidencePackJson.descriptor.partner_id, "clawpump");
+  assert.equal(evidencePackJson.descriptor.partner_id, "partner_demo");
   assert.equal(evidencePackJson.assessment.stage, "stage_2_observable_payout_path_mvp");
   assert.deepEqual(
     evidencePackJson.receipts.map((receipt) => receipt.receipt_type),
@@ -86,7 +87,7 @@ test("partner harness CLI emits a retained run directory with SDK artifacts and 
 test("partner harness CLI fails closed when partner reads are injected to fail", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-fail-"));
   const result = await runCli([
-    "clawpump-mock-pilot",
+    "partner-managed-mock-pilot",
     "--out-dir",
     outDir,
     "--inject-failure",
@@ -158,7 +159,7 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
   try {
     const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-attn-"));
     const result = await runCli([
-      "clawpump-mock-pilot",
+      "partner-managed-mock-pilot",
       "--out-dir",
       outDir,
       "--attn-base-url",
@@ -193,7 +194,7 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
 
 test("partner harness CLI can retain a small scenario matrix for comparative analysis", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-matrix-"));
-  const result = await runCli(["clawpump-mock-matrix", "--out-dir", outDir]);
+  const result = await runCli(["partner-managed-mock-matrix", "--out-dir", outDir]);
 
   const matrixSummary = result.summary as unknown as {
     ok: boolean;
@@ -228,19 +229,19 @@ test("partner harness CLI can retain a small scenario matrix for comparative ana
 test("partner harness CLI can package clawpump-style partner files into retained SDK artifacts", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-files-"));
   const result = await runCli([
-    "clawpump-pack-from-files",
+    "partner-managed-pack-from-files",
     "--out-dir",
     outDir,
     "--launch",
-    path.join(REPO_ROOT, "examples", "clawpump", "launch.json"),
+    path.join(REPO_ROOT, "examples", "partner-managed", "launch.json"),
     "--payout-topology",
-    path.join(REPO_ROOT, "examples", "clawpump", "payout-topology.json"),
+    path.join(REPO_ROOT, "examples", "partner-managed", "payout-topology.json"),
     "--creator-fee-state",
-    path.join(REPO_ROOT, "examples", "clawpump", "creator-fee-state.json"),
+    path.join(REPO_ROOT, "examples", "partner-managed", "creator-fee-state.json"),
     "--revenue-events",
-    path.join(REPO_ROOT, "examples", "clawpump", "revenue-events.json"),
+    path.join(REPO_ROOT, "examples", "partner-managed", "revenue-events.json"),
     "--repayment-mode",
-    path.join(REPO_ROOT, "examples", "clawpump", "repayment-mode.json"),
+    path.join(REPO_ROOT, "examples", "partner-managed", "repayment-mode.json"),
   ]);
 
   assert.equal(result.summary.ok, true);
@@ -263,9 +264,39 @@ test("partner harness CLI can package clawpump-style partner files into retained
 
   assert.equal(summaryJson.stage, "stage_2_observable_payout_path_mvp");
   assert.equal(summaryJson.attn_snapshot_scope, "none");
-  assert.equal(evidencePackJson.descriptor.partner_id, "clawpump");
-  assert.equal(evidencePackJson.descriptor.display_name, "ClawPump");
+  assert.equal(evidencePackJson.descriptor.partner_id, "partner_demo");
+  assert.equal(evidencePackJson.descriptor.display_name, "Partner Demo");
   assert.equal(evidencePackJson.assessment.stage, "stage_2_observable_payout_path_mvp");
   assert.match(logFile, /inputs\.payout_topology/);
   assert.match(logFile, /partner\.writeRepaymentModeReceipt/);
+});
+
+test("legacy clawpump command aliases remain supported for compatibility", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-legacy-"));
+  const result = await runCli([
+    "clawpump-pack-from-files",
+    "--out-dir",
+    outDir,
+    "--launch",
+    path.join(REPO_ROOT, "examples", "clawpump", "launch.json"),
+    "--payout-topology",
+    path.join(REPO_ROOT, "examples", "clawpump", "payout-topology.json"),
+    "--creator-fee-state",
+    path.join(REPO_ROOT, "examples", "clawpump", "creator-fee-state.json"),
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "clawpump", "revenue-events.json"),
+    "--repayment-mode",
+    path.join(REPO_ROOT, "examples", "clawpump", "repayment-mode.json"),
+  ]);
+
+  assert.equal(result.summary.ok, true);
+  assert.equal(result.summary.command, "partner-managed-pack-from-files");
+
+  const evidencePackFile = await readFile(result.summary.artifact_paths.sdk_evidence_pack, "utf8");
+  const evidencePackJson = JSON.parse(evidencePackFile) as {
+    descriptor: { partner_id: string; display_name: string };
+  };
+
+  assert.equal(evidencePackJson.descriptor.partner_id, "clawpump");
+  assert.equal(evidencePackJson.descriptor.display_name, "ClawPump");
 });

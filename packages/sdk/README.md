@@ -132,16 +132,37 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:clawpump-pack-from-files -- \
+pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
-  --launch ./examples/clawpump/launch.json \
-  --payout-topology ./examples/clawpump/payout-topology.json \
-  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
-  --revenue-events ./examples/clawpump/revenue-events.json \
-  --repayment-mode ./examples/clawpump/repayment-mode.json
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
 Only after that baseline run should a separate integration repo be created around the public SDK contract.
+
+Legacy `clawpump-*` harness commands remain available as compatibility aliases for the reference adapter, but public partner starts should use the `partner-managed-*` names.
+
+Recommended separate-repo wiring:
+
+1. clone or vendor the public repo into `vendor/attn-credit-sdk`,
+2. declare `@attn-credit/sdk` as a file dependency from `vendor/attn-credit-sdk/packages/sdk`,
+3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+4. import from `@attn-credit/sdk` rather than from `vendor/.../src` or `vendor/.../dist`,
+5. keep the new repo limited to partner auth, transport, DTO normalization, export loading, and adapter glue,
+6. and if the public inputs do not define live partner HTTP routes or auth scopes, keep transport explicit, config-driven, and fail closed instead of inventing that contract.
+
+Minimal dependency wiring looks like:
+
+```json
+{
+  "dependencies": {
+    "@attn-credit/sdk": "file:vendor/attn-credit-sdk/packages/sdk"
+  }
+}
+```
 
 ### Compact partner-managed example
 

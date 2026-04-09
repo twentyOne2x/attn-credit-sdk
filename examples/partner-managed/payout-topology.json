@@ -1,0 +1,24 @@
+{
+  "mint": "clawmint11111111111111111111111111111111",
+  "dev_wallet": "devwallet11111111111111111111111111111111",
+  "gas_sponsor_wallet": "gassponsor11111111111111111111111111111",
+  "agent_rewards_wallet": "agentwallet111111111111111111111111111111",
+  "platform_treasury_wallet": "clawtreasury1111111111111111111111111111",
+  "current_payout_mode": "claim_and_stream",
+  "current_payout_recipients": [
+    {
+      "wallet": "agentwallet111111111111111111111111111111",
+      "label": "agent_rewards",
+      "share_bps": 8500
+    },
+    {
+      "wallet": "clawtreasury1111111111111111111111111111",
+      "label": "platform_treasury",
+      "share_bps": 1500
+    }
+  ],
+  "payout_edit_authority": "claw_backend",
+  "platform_controls_dev_wallet": true,
+  "control_model": "platform_owned",
+  "source_timestamp": "2026-03-18T12:00:00.000Z"
+}

@@ -9,9 +9,12 @@
   "scripts": {
     "build": "pnpm -r build",
     "harness:help": "node packages/harness-cli/dist/index.js --help",
-    "harness:clawpump-mock-pilot": "node packages/harness-cli/dist/index.js clawpump-mock-pilot",
-    "harness:clawpump-pack-from-files": "node packages/harness-cli/dist/index.js clawpump-pack-from-files",
-    "harness:clawpump-mock-matrix": "node packages/harness-cli/dist/index.js clawpump-mock-matrix",
+    "harness:partner-managed-mock-pilot": "node packages/harness-cli/dist/index.js partner-managed-mock-pilot",
+    "harness:partner-managed-pack-from-files": "node packages/harness-cli/dist/index.js partner-managed-pack-from-files",
+    "harness:partner-managed-mock-matrix": "node packages/harness-cli/dist/index.js partner-managed-mock-matrix",
+    "harness:clawpump-mock-pilot": "pnpm run harness:partner-managed-mock-pilot",
+    "harness:clawpump-pack-from-files": "pnpm run harness:partner-managed-pack-from-files",
+    "harness:clawpump-mock-matrix": "pnpm run harness:partner-managed-mock-matrix",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm build && pnpm exec tsx --test tests/sdk-client.test.ts tests/clawpump-client.test.ts tests/harness-cli.test.ts"
   },

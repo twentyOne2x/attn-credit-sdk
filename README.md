@@ -39,7 +39,7 @@ pnpm test
 Retained harness run:
 
 ```bash
-pnpm run harness:clawpump-mock-pilot -- \
+pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
   --attn-base-url https://app.attn.markets
 ```
@@ -49,16 +49,18 @@ That command writes a timestamped run directory containing partner snapshots, SD
 If you want to package partner-provided exports instead of a mock run, use the file-backed command:
 
 ```bash
-pnpm run harness:clawpump-pack-from-files -- \
+pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
-  --launch ./examples/clawpump/launch.json \
-  --payout-topology ./examples/clawpump/payout-topology.json \
-  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
-  --revenue-events ./examples/clawpump/revenue-events.json \
-  --repayment-mode ./examples/clawpump/repayment-mode.json
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
 That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It packages partner-provided readbacks into retained receipts, descriptor output, stage assessment, and evidence-pack artifacts without pretending the partner has adopted the current attn callable fallback lane.
+
+Legacy `clawpump-*` harness commands still exist as compatibility aliases for the reference adapter. Public docs should prefer the `partner-managed-*` names.
 
 Fresh external repo rule:
 
@@ -74,16 +76,35 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:clawpump-pack-from-files -- \
+pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
-  --launch ./examples/clawpump/launch.json \
-  --payout-topology ./examples/clawpump/payout-topology.json \
-  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
-  --revenue-events ./examples/clawpump/revenue-events.json \
-  --repayment-mode ./examples/clawpump/repayment-mode.json
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
 That is the intended first move for a blind external implementation. Clone the public repo and execute the retained file-backed path before you attempt a separate integration repo.
+
+Recommended separate-repo wiring after that baseline:
+
+1. vendor this repo into `vendor/attn-credit-sdk`,
+2. add `@attn-credit/sdk` as a file dependency from `vendor/attn-credit-sdk/packages/sdk`,
+3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+4. import from `@attn-credit/sdk` instead of deep-importing `vendor/.../src` or `vendor/.../dist`,
+5. keep local code limited to auth, transport, DTO normalization, export loading, and adapter glue,
+6. and if a live partner HTTP contract is not public yet, keep transport config-driven or stubbed and fail closed instead of guessing routes or auth scopes.
+
+Minimal `package.json` shape for that separate repo:
+
+```json
+{
+  "dependencies": {
+    "@attn-credit/sdk": "file:vendor/attn-credit-sdk/packages/sdk"
+  }
+}
+```
 
 If you are handing this to an external team or AI, use the canonical base prompt in the public integration guide:
 
@@ -92,7 +113,7 @@ If you are handing this to an external team or AI, use the canonical base prompt
 If you explicitly want to snapshot the current hosted attn callable fallback tuple as a comparison point, use:
 
 ```bash
-pnpm run harness:clawpump-mock-pilot -- \
+pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
   --attn-base-url https://app.attn.markets \
   --preset-id solana_borrower_legacy_swig \
@@ -105,7 +126,7 @@ That attn capabilities snapshot is about the current hosted fallback contract on
 Comparative matrix run:
 
 ```bash
-pnpm run harness:clawpump-mock-matrix -- --out-dir ./tmp/harness-runs
+pnpm run harness:partner-managed-mock-matrix -- --out-dir ./tmp/harness-runs
 ```
 
 That command retains multiple scenario runs side by side so you can compare the baseline contract against degraded partner-read cases.

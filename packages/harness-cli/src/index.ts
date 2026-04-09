@@ -50,14 +50,24 @@ import {
 const DEFAULT_MINT = "clawmint11111111111111111111111111111111";
 const DEFAULT_REPAYMENT_TARGET = "attnrepay111111111111111111111111111111";
 const DEFAULT_OUTPUT_ROOT = "./tmp/partner-managed-harness";
-const DEFAULT_PARTNER_ID = "clawpump";
-const DEFAULT_DISPLAY_NAME = "ClawPump";
+const DEFAULT_PARTNER_ID = "partner_demo";
+const DEFAULT_DISPLAY_NAME = "Partner Demo";
+const LEGACY_DEFAULT_PARTNER_ID = "clawpump";
+const LEGACY_DEFAULT_DISPLAY_NAME = "ClawPump";
 
-type CommandName = "clawpump-mock-pilot" | "clawpump-mock-matrix" | "clawpump-pack-from-files";
+type CanonicalCommandName =
+  | "partner-managed-mock-pilot"
+  | "partner-managed-mock-matrix"
+  | "partner-managed-pack-from-files";
+type AcceptedCommandName =
+  | CanonicalCommandName
+  | "clawpump-mock-pilot"
+  | "clawpump-mock-matrix"
+  | "clawpump-pack-from-files";
 type AttnSnapshotScope = "none" | "catalog_only" | "current_callable_fallback_tuple";
 
 type CliOptions = {
-  command: CommandName;
+  command: CanonicalCommandName;
   outDir: string;
   attnBaseUrl?: string;
   presetId?: string;
@@ -85,7 +95,7 @@ type Logger = {
 
 type RunSummary = {
   ok: boolean;
-  command: CommandName;
+  command: CanonicalCommandName;
   run_id: string;
   run_dir: string;
   log_path: string;
@@ -103,7 +113,7 @@ type RunSummary = {
 
 type MatrixSummary = {
   ok: boolean;
-  command: "clawpump-mock-matrix";
+  command: "partner-managed-mock-matrix";
   matrix_id: string;
   matrix_dir: string;
   log_path: string;
@@ -134,6 +144,11 @@ function printHelp(): void {
   process.stdout.write(
     [
       "Usage:",
+      "  attn-partner-harness partner-managed-mock-pilot [options]",
+      "  attn-partner-harness partner-managed-mock-matrix [options]",
+      "  attn-partner-harness partner-managed-pack-from-files [options]",
+      "",
+      "Legacy compatibility aliases:",
       "  attn-partner-harness clawpump-mock-pilot [options]",
       "  attn-partner-harness clawpump-mock-matrix [options]",
       "  attn-partner-harness clawpump-pack-from-files [options]",
@@ -147,11 +162,11 @@ function printHelp(): void {
       "  --repayment-target <wallet>     Repayment target to activate in the mock pilot",
       "  --repayment-share-bps <n>       Repayment share basis points for the mock pilot",
       "  --inject-failure <op:kind>      Inject one mock partner failure; repeatable",
-      "  --launch <path>                 ClawPump launch JSON for clawpump-pack-from-files",
-      "  --payout-topology <path>        ClawPump payout topology JSON for clawpump-pack-from-files",
-      "  --creator-fee-state <path>      ClawPump creator-fee-state JSON for clawpump-pack-from-files",
-      "  --revenue-events <path>         ClawPump revenue-events JSON array for clawpump-pack-from-files",
-      "  --repayment-mode <path>         ClawPump repayment-mode JSON for clawpump-pack-from-files",
+      "  --launch <path>                 Reference launch JSON for partner-managed-pack-from-files",
+      "  --payout-topology <path>        Reference payout topology JSON for partner-managed-pack-from-files",
+      "  --creator-fee-state <path>      Reference creator-fee-state JSON for partner-managed-pack-from-files",
+      "  --revenue-events <path>         Reference revenue-events JSON array for partner-managed-pack-from-files",
+      "  --repayment-mode <path>         Reference repayment-mode JSON for partner-managed-pack-from-files",
       "  --proof-state <state>           Proof posture to stamp on file-backed receipts",
       "  --partner-id <id>               Partner id to retain in descriptor/evidence output",
       "  --display-name <name>           Display name to retain in descriptor/evidence output",
@@ -252,6 +267,19 @@ function assertString(value: string | undefined, flag: string): string {
   return value;
 }
 
+const COMMAND_ALIASES: Record<AcceptedCommandName, CanonicalCommandName> = {
+  "partner-managed-mock-pilot": "partner-managed-mock-pilot",
+  "partner-managed-mock-matrix": "partner-managed-mock-matrix",
+  "partner-managed-pack-from-files": "partner-managed-pack-from-files",
+  "clawpump-mock-pilot": "partner-managed-mock-pilot",
+  "clawpump-mock-matrix": "partner-managed-mock-matrix",
+  "clawpump-pack-from-files": "partner-managed-pack-from-files",
+};
+
+function isLegacyClawpumpAlias(command: AcceptedCommandName): boolean {
+  return command.startsWith("clawpump-");
+}
+
 function parseArgs(argv: string[]): CliOptions {
   const normalizedArgv = argv.filter((token, index) => !(token === "--" && index > 0));
   const [commandRaw, ...rest] = normalizedArgv;
@@ -259,23 +287,23 @@ function parseArgs(argv: string[]): CliOptions {
     printHelp();
     process.exit(0);
   }
-  if (
-    commandRaw !== "clawpump-mock-pilot" &&
-    commandRaw !== "clawpump-mock-matrix" &&
-    commandRaw !== "clawpump-pack-from-files"
-  ) {
+
+  if (!(commandRaw in COMMAND_ALIASES)) {
     throw new Error(`unsupported command: ${commandRaw}`);
   }
+  const acceptedCommand = commandRaw as AcceptedCommandName;
+  const command = COMMAND_ALIASES[acceptedCommand];
+  const useLegacyDefaults = isLegacyClawpumpAlias(acceptedCommand);
 
   const options: CliOptions = {
-    command: commandRaw,
+    command,
     outDir: DEFAULT_OUTPUT_ROOT,
     repaymentTarget: DEFAULT_REPAYMENT_TARGET,
     repaymentShareBps: 6000,
     injectFailures: [],
     proofState: "backend_readonly_proven",
-    partnerId: DEFAULT_PARTNER_ID,
-    displayName: DEFAULT_DISPLAY_NAME,
+    partnerId: useLegacyDefaults ? LEGACY_DEFAULT_PARTNER_ID : DEFAULT_PARTNER_ID,
+    displayName: useLegacyDefaults ? LEGACY_DEFAULT_DISPLAY_NAME : DEFAULT_DISPLAY_NAME,
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -1165,7 +1193,7 @@ async function runClawpumpMockMatrix(options: CliOptions): Promise<MatrixSummary
     const summary = await runClawpumpMockPilot({
       ...options,
       ...(scenario.option_overrides ?? {}),
-      command: "clawpump-mock-pilot",
+      command: "partner-managed-mock-pilot",
       outDir: path.join(matrixDir, scenario.scenario_id),
     });
     scenarioSummaries.push({
@@ -1188,7 +1216,7 @@ async function runClawpumpMockMatrix(options: CliOptions): Promise<MatrixSummary
 
   const summary: MatrixSummary = {
     ok: true,
-    command: "clawpump-mock-matrix",
+    command: "partner-managed-mock-matrix",
     matrix_id: matrixId,
     matrix_dir: matrixDir,
     log_path: logPath,
@@ -1207,19 +1235,19 @@ async function runClawpumpMockMatrix(options: CliOptions): Promise<MatrixSummary
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
-  if (options.command === "clawpump-mock-pilot") {
+  if (options.command === "partner-managed-mock-pilot") {
     const summary = await runClawpumpMockPilot(options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
-  if (options.command === "clawpump-pack-from-files") {
+  if (options.command === "partner-managed-pack-from-files") {
     const summary = await runClawpumpPackFromFiles(options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
-  if (options.command === "clawpump-mock-matrix") {
+  if (options.command === "partner-managed-mock-matrix") {
     const summary = await runClawpumpMockMatrix(options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     process.exitCode = summary.ok ? 0 : 1;

@@ -1,0 +1,10 @@
+{
+  "mint": "clawmint11111111111111111111111111111111",
+  "current_creator_fee_recipient": "agentwallet111111111111111111111111111111",
+  "accrued_creator_fees_sol": 18.4,
+  "claimed_creator_fees_sol": 12.9,
+  "claimable_creator_fees_sol": 5.5,
+  "last_claim_at": "2026-03-18T11:30:00.000Z",
+  "last_claim_signature": "lastclaimsig111111111111111111111111111111",
+  "source_timestamp": "2026-03-18T12:00:00.000Z"
+}

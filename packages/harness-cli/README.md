@@ -12,9 +12,9 @@ Public references:
 ## What this does
 
 The first command is:
-1. `clawpump-mock-pilot`
-2. `clawpump-mock-matrix`
-3. `clawpump-pack-from-files`
+1. `partner-managed-mock-pilot`
+2. `partner-managed-mock-matrix`
+3. `partner-managed-pack-from-files`
 
 It runs one bounded partner-managed revenue scenario and emits:
 1. raw partner-side artifacts
@@ -36,7 +36,7 @@ It proves the execution contract, the artifact contract, and the failure posture
 ## Example
 
 ```bash
-pnpm run harness:clawpump-mock-pilot -- \
+pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
   --attn-base-url https://app.attn.markets
 ```
@@ -44,21 +44,23 @@ pnpm run harness:clawpump-mock-pilot -- \
 If you want to package partner-provided exports instead of a mock run, use:
 
 ```bash
-pnpm run harness:clawpump-pack-from-files -- \
+pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
-  --launch ./examples/clawpump/launch.json \
-  --payout-topology ./examples/clawpump/payout-topology.json \
-  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
-  --revenue-events ./examples/clawpump/revenue-events.json \
-  --repayment-mode ./examples/clawpump/repayment-mode.json
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
 That file-backed command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It retains the packaged partner readbacks and the derived SDK artifacts without implying the hosted attn callable fallback is already the same lane.
 
+Legacy `clawpump-*` command names still work as compatibility aliases for the reference adapter. Public partner starts should use the `partner-managed-*` names.
+
 If you want the harness to snapshot the current hosted attn callable fallback tuple too, provide the explicit preset tuple instead of making the CLI guess:
 
 ```bash
-pnpm run harness:clawpump-mock-pilot -- \
+pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
   --attn-base-url https://app.attn.markets \
   --preset-id solana_borrower_legacy_swig \
@@ -73,7 +75,7 @@ That attn capabilities snapshot is only a comparison point against the current h
 Matrix example:
 
 ```bash
-pnpm run harness:clawpump-mock-matrix -- --out-dir ./tmp/harness-runs
+pnpm run harness:partner-managed-mock-matrix -- --out-dir ./tmp/harness-runs
 ```
 
 The matrix command retains a baseline run plus degraded partner-read scenarios so the stage classifier, residual-risk outputs, and evidence packaging can be compared side by side.
@@ -96,16 +98,25 @@ git clone https://github.com/twentyOne2x/attn-credit-sdk
 cd attn-credit-sdk
 pnpm install
 pnpm build
-pnpm run harness:clawpump-pack-from-files -- \
+pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
-  --launch ./examples/clawpump/launch.json \
-  --payout-topology ./examples/clawpump/payout-topology.json \
-  --creator-fee-state ./examples/clawpump/creator-fee-state.json \
-  --revenue-events ./examples/clawpump/revenue-events.json \
-  --repayment-mode ./examples/clawpump/repayment-mode.json
+  --launch ./examples/partner-managed/launch.json \
+  --payout-topology ./examples/partner-managed/payout-topology.json \
+  --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
+  --revenue-events ./examples/partner-managed/revenue-events.json \
+  --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
 That bootstrap is intentionally explicit because a blind external repo should start by executing the public harness, not by scraping the schema and reconstructing the contract from prose.
+
+If a separate partner repo is created after that bootstrap, prefer this wiring:
+
+1. vendor the public SDK repo into `vendor/attn-credit-sdk`,
+2. depend on `@attn-credit/sdk` from `vendor/attn-credit-sdk/packages/sdk`,
+3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+4. import from `@attn-credit/sdk` instead of deep-importing `vendor/.../src` or `vendor/.../dist`,
+5. keep the repo-specific code limited to partner auth, transport, DTO normalization, export loading, and retained-run glue,
+6. and if the partner's live HTTP contract is not public, keep transport as an explicit stub or config-driven adapter that fails closed.
 
 ## Retained output tree
 
