@@ -4,6 +4,8 @@ Standalone CLI harness for the partner-managed revenue contract.
 
 Use this package when you want to run the SDK contract as an executable scenario instead of reading only the interface types.
 
+For the current Pump creator-fee-backed borrower work, this CLI is the fastest public way to gauge the partner-managed lane from real partner data without pretending the live funded lane is already shipped.
+
 Public references:
 1. integration guide: [docs.attn.markets/users/partner-managed-creator-fee-integration](https://docs.attn.markets/users/partner-managed-creator-fee-integration)
 2. attn 1-pager: [docs.attn.markets/1-pager](https://docs.attn.markets/1-pager)
@@ -60,6 +62,9 @@ That validation pass tells you:
 3. which files are missing or invalid,
 4. the current stage implied by the bundle,
 5. and the exact next packaging command when the bundle is ready enough.
+
+If you want a faster human-readable gauge instead of JSON, add `--format human`.
+At the repo root, `pnpm run harness:partner-managed-validate:human` wraps that mode directly.
 
 Then package the bundle:
 

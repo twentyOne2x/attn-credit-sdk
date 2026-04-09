@@ -70,6 +70,7 @@ type CanonicalCommandName =
   | "partner-managed-mock-matrix"
   | "partner-managed-pack-from-files"
   | "partner-managed-validate";
+type RunCommandName = "partner-managed-mock-pilot" | "partner-managed-pack-from-files";
 type AcceptedCommandName =
   | CanonicalCommandName
   | "partner-managed-doctor"
@@ -86,6 +87,7 @@ type FileInputId =
   | "revenue_events"
   | "repayment_mode";
 type InputArtifactState = "ok" | "missing" | "invalid";
+type OutputFormat = "json" | "human";
 
 type CliOptions = {
   command: CanonicalCommandName;
@@ -105,6 +107,7 @@ type CliOptions = {
   proofState: ClawPumpProofState;
   partnerId: string;
   displayName: string;
+  format: OutputFormat;
 };
 
 type Logger = {
@@ -116,7 +119,7 @@ type Logger = {
 
 type RunSummary = {
   ok: boolean;
-  command: CanonicalCommandName;
+  command: RunCommandName;
   run_id: string;
   run_dir: string;
   log_path: string;
@@ -240,6 +243,7 @@ function printHelp(): void {
       "  --proof-state <state>           Proof posture to stamp on file-backed receipts",
       "  --partner-id <id>               Partner id to retain in descriptor/evidence output",
       "  --display-name <name>           Display name to retain in descriptor/evidence output",
+      "  --format <json|human>          Output format for stdout summary",
       "",
     ].join("\n"),
   );
@@ -378,6 +382,7 @@ function parseArgs(argv: string[]): CliOptions {
     proofState: "backend_readonly_proven",
     partnerId: useLegacyDefaults ? LEGACY_DEFAULT_PARTNER_ID : DEFAULT_PARTNER_ID,
     displayName: useLegacyDefaults ? LEGACY_DEFAULT_DISPLAY_NAME : DEFAULT_DISPLAY_NAME,
+    format: "json",
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -431,6 +436,9 @@ function parseArgs(argv: string[]): CliOptions {
       case "--display-name":
         options.displayName = assertString(rest[++index], token);
         break;
+      case "--format":
+        options.format = assertString(rest[++index], token) as OutputFormat;
+        break;
       case "--help":
       case "-h":
         printHelp();
@@ -441,6 +449,7 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   options.proofState = z.enum(CLAWPUMP_PROOF_STATES).parse(options.proofState);
+  options.format = z.enum(["json", "human"]).parse(options.format);
   return options;
 }
 
@@ -824,6 +833,112 @@ function buildDoctorNextSteps(args: {
   }
 
   return steps;
+}
+
+function renderRunSummaryHuman(summary: RunSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `ok: ${summary.ok ? "yes" : "no"}`,
+    `stage: ${summary.stage}`,
+    `claim level: ${summary.claim_level}`,
+    `run dir: ${summary.run_dir}`,
+    `snapshot scope: ${summary.attn_snapshot_scope}`,
+  ];
+
+  if (summary.residual_risk_codes.length > 0) {
+    lines.push(`residual risks: ${summary.residual_risk_codes.join(", ")}`);
+  } else {
+    lines.push("residual risks: none");
+  }
+
+  if (summary.required_partner_inputs.length > 0) {
+    lines.push(`required partner inputs: ${summary.required_partner_inputs.join(", ")}`);
+  }
+
+  if (summary.failures.length > 0) {
+    lines.push("failures:");
+    for (const failure of summary.failures) {
+      lines.push(`- ${failure.step}: ${failure.message}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function renderDoctorSummaryHuman(summary: DoctorSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `bundle ready to pack: ${summary.pack_from_files_ready ? "yes" : "no"}`,
+    `bundle ready for first retained run: ${summary.first_retained_run_ready ? "yes" : "no"}`,
+    `current stage: ${summary.current_stage}`,
+    `current claim level: ${summary.current_claim_level}`,
+    `run dir: ${summary.run_dir}`,
+  ];
+
+  if (summary.next_stage) {
+    lines.push(`next stage: ${summary.next_stage}`);
+  }
+
+  if (summary.missing_required_inputs.length > 0) {
+    lines.push(`missing required inputs: ${summary.missing_required_inputs.join(", ")}`);
+  }
+  if (summary.missing_recommended_inputs.length > 0) {
+    lines.push(`missing recommended inputs: ${summary.missing_recommended_inputs.join(", ")}`);
+  }
+  if (summary.invalid_inputs.length > 0) {
+    lines.push(`invalid inputs: ${summary.invalid_inputs.join(", ")}`);
+  }
+  if (summary.next_requirement_ids.length > 0) {
+    lines.push(`next requirements: ${summary.next_requirement_ids.join(", ")}`);
+  }
+  if (summary.residual_risk_codes.length > 0) {
+    lines.push(`residual risks: ${summary.residual_risk_codes.join(", ")}`);
+  }
+  if (summary.recommended_next_steps.length > 0) {
+    lines.push("next steps:");
+    for (const step of summary.recommended_next_steps) {
+      lines.push(`- ${step}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function renderMatrixSummaryHuman(summary: MatrixSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `all scenarios ok: ${summary.all_scenarios_ok ? "yes" : "no"}`,
+    `degraded scenarios: ${summary.degraded_scenario_count}`,
+    `matrix dir: ${summary.matrix_dir}`,
+    "scenarios:",
+  ];
+
+  for (const scenario of summary.scenario_summaries) {
+    lines.push(
+      `- ${scenario.scenario_id}: ok=${scenario.ok ? "yes" : "no"}, stage=${scenario.stage}, claim=${scenario.claim_level}, failures=${scenario.failure_count}`,
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function writeSummary(summary: RunSummary | DoctorSummary | MatrixSummary, format: OutputFormat): void {
+  if (format === "json") {
+    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    return;
+  }
+
+  if (summary.command === "partner-managed-validate") {
+    process.stdout.write(renderDoctorSummaryHuman(summary));
+    return;
+  }
+
+  if (summary.command === "partner-managed-mock-matrix") {
+    process.stdout.write(renderMatrixSummaryHuman(summary));
+    return;
+  }
+
+  process.stdout.write(renderRunSummaryHuman(summary));
 }
 
 async function maybeFetchAttnSnapshots(args: {
@@ -1305,7 +1420,7 @@ async function runClawpumpMockPilot(options: CliOptions): Promise<RunSummary> {
 
   const summary: RunSummary = {
     ok: failures.length === 0,
-    command: options.command,
+    command: "partner-managed-mock-pilot",
     run_id: path.basename(logger.runDir),
     run_dir: logger.runDir,
     log_path: logger.logPath,
@@ -1608,7 +1723,7 @@ async function runClawpumpPackFromFiles(options: CliOptions): Promise<RunSummary
 
   const summary: RunSummary = {
     ok: failures.length === 0,
-    command: options.command,
+    command: "partner-managed-pack-from-files",
     run_id: path.basename(logger.runDir),
     run_dir: logger.runDir,
     log_path: logger.logPath,
@@ -1711,25 +1826,25 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (options.command === "partner-managed-mock-pilot") {
     const summary = await runClawpumpMockPilot(options);
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    writeSummary(summary, options.format);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
   if (options.command === "partner-managed-pack-from-files") {
     const summary = await runClawpumpPackFromFiles(options);
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    writeSummary(summary, options.format);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
   if (options.command === "partner-managed-validate") {
     const summary = await runPartnerManagedDoctor(options);
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    writeSummary(summary, options.format);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }
   if (options.command === "partner-managed-mock-matrix") {
     const summary = await runClawpumpMockMatrix(options);
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    writeSummary(summary, options.format);
     process.exitCode = summary.ok ? 0 : 1;
     return;
   }

@@ -12,6 +12,7 @@
     "harness:partner-managed-mock-pilot": "node packages/harness-cli/dist/index.js partner-managed-mock-pilot",
     "harness:partner-managed-pack-from-files": "node packages/harness-cli/dist/index.js partner-managed-pack-from-files",
     "harness:partner-managed-validate": "node packages/harness-cli/dist/index.js partner-managed-validate",
+    "harness:partner-managed-validate:human": "node packages/harness-cli/dist/index.js partner-managed-validate --format human",
     "harness:partner-managed-doctor": "pnpm run harness:partner-managed-validate",
     "harness:partner-managed-mock-matrix": "node packages/harness-cli/dist/index.js partner-managed-mock-matrix",
     "harness:clawpump-mock-pilot": "pnpm run harness:partner-managed-mock-pilot",

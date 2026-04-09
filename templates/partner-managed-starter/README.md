@@ -21,6 +21,7 @@ pnpm --dir templates/partner-managed-starter typecheck
 pnpm --dir templates/partner-managed-starter build
 pnpm --dir templates/partner-managed-starter test
 pnpm --dir templates/partner-managed-starter run partner:validate:sample
+pnpm --dir templates/partner-managed-starter run partner:validate:sample:human
 pnpm --dir templates/partner-managed-starter run partner:pack:sample
 ```
 

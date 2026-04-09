@@ -6,6 +6,8 @@ Typed TypeScript surfaces for partner-managed attn credit integrations.
 
 If you are evaluating a partner-managed revenue lane with custom wallet or payout infrastructure, this README is the mechanics companion to the public integration guide.
 
+For the current Pump creator-fee-backed borrower work, this package is the public contract for the partner-managed lane. It standardizes how attn and a partner describe, assess, and retain evidence for that lane when the partner keeps its own wallet and payout stack.
+
 Use the split like this:
 
 1. the public doc explains guarantees, stages, evidence, and policy thresholds
@@ -33,6 +35,8 @@ This README should answer:
 2. which readbacks and receipts attn expects
 3. how attn classifies the lane
 4. how attn packages evidence and drift signals
+
+This package does not, by itself, fund or execute the live credit line. It standardizes the typed contract around the lane so the live integration can be qualified honestly.
 
 If you want to execute this contract instead of reading only the types, use the retained-run harness in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md).
 
@@ -140,7 +144,8 @@ pnpm run harness:partner-managed-validate -- \
   --payout-topology ./examples/partner-managed/payout-topology.json \
   --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
   --revenue-events ./examples/partner-managed/revenue-events.json \
-  --repayment-mode ./examples/partner-managed/repayment-mode.json
+  --repayment-mode ./examples/partner-managed/repayment-mode.json \
+  --format human
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \

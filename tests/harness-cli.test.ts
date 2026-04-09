@@ -23,6 +23,16 @@ async function runCli(args: string[]) {
   };
 }
 
+async function runCliRaw(args: string[]) {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [CLI_DIST_PATH, ...args], {
+    cwd: REPO_ROOT,
+  });
+  return {
+    stdout: stdout.trim(),
+    stderr: stderr.trim(),
+  };
+}
+
 test("partner harness CLI emits a retained run directory with SDK artifacts and logs", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-"));
   const result = await runCli(["partner-managed-mock-pilot", "--out-dir", outDir]);
@@ -70,6 +80,61 @@ test("partner harness CLI emits a retained run directory with SDK artifacts and 
     result.summary.residual_risk_codes.includes("private_treasury_funding_receipts_missing"),
     true,
   );
+});
+
+test("partner harness CLI can render a human-readable validation summary for quick gauging", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-human-"));
+  const result = await runCliRaw([
+    "partner-managed-validate",
+    "--out-dir",
+    outDir,
+    "--launch",
+    path.join(REPO_ROOT, "examples", "partner-managed", "launch.json"),
+    "--payout-topology",
+    path.join(REPO_ROOT, "examples", "partner-managed", "payout-topology.json"),
+    "--creator-fee-state",
+    path.join(REPO_ROOT, "examples", "partner-managed", "creator-fee-state.json"),
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "partner-managed", "revenue-events.json"),
+    "--repayment-mode",
+    path.join(REPO_ROOT, "examples", "partner-managed", "repayment-mode.json"),
+    "--format",
+    "human",
+  ]);
+
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /command: partner-managed-validate/);
+  assert.match(result.stdout, /bundle ready for first retained run: yes/);
+  assert.match(result.stdout, /current stage: stage_2_observable_payout_path_mvp/);
+  assert.match(result.stdout, /next stage: stage_3_policy_bounded_first_pilot/);
+  assert.match(result.stdout, /next steps:/);
+});
+
+test("partner harness CLI can render a human-readable retained pack summary", async () => {
+  const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-human-pack-"));
+  const result = await runCliRaw([
+    "partner-managed-pack-from-files",
+    "--out-dir",
+    outDir,
+    "--launch",
+    path.join(REPO_ROOT, "examples", "partner-managed", "launch.json"),
+    "--payout-topology",
+    path.join(REPO_ROOT, "examples", "partner-managed", "payout-topology.json"),
+    "--creator-fee-state",
+    path.join(REPO_ROOT, "examples", "partner-managed", "creator-fee-state.json"),
+    "--revenue-events",
+    path.join(REPO_ROOT, "examples", "partner-managed", "revenue-events.json"),
+    "--repayment-mode",
+    path.join(REPO_ROOT, "examples", "partner-managed", "repayment-mode.json"),
+    "--format",
+    "human",
+  ]);
+
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /command: partner-managed-pack-from-files/);
+  assert.match(result.stdout, /ok: yes/);
+  assert.match(result.stdout, /stage: stage_2_observable_payout_path_mvp/);
+  assert.match(result.stdout, /claim level: underwriting_compatible/);
 });
 
 test("partner harness CLI fails closed when partner reads are injected to fail", async () => {

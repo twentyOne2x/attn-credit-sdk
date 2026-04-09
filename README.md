@@ -6,6 +6,27 @@ This standalone repo is the public reference for the attn partner-managed integr
 
 The core partner-managed contract is not limited to creator-fee lanes. It can describe any attributable revenue surface with a payout path, change authority, readback, and debt-open routing, including creator fees, service fees, usage fees, subscriptions, or a custom cashflow model.
 
+## What this enables today
+
+Today, this public SDK enables the partner-managed Pump creator-fee-backed credit lane in the sense that it gives attn and a partner one shared contract for:
+
+1. describing the current creator-fee or revenue lane,
+2. validating whether the partner data bundle is good enough for a truthful first retained run,
+3. classifying the current honest stage and claim level,
+4. packaging retained evidence for underwriting and pilot review,
+5. and scaffolding a partner-side integration without re-inventing the contract.
+
+For a Pump or ClawPump-style partner, that means the SDK is the public contract for qualifying and packaging the creator-fee-backed borrower lane when the partner keeps its own wallet and payout infrastructure.
+
+## What this does not enable by itself
+
+This repo does not, by itself:
+
+1. fund or open the live credit line,
+2. prove live payout-control parity,
+3. replace a real partner backend integration,
+4. or upgrade the lane into broader borrower-market or lender-market readiness.
+
 Included packages:
 
 1. `@attn-credit/sdk`
@@ -67,6 +88,9 @@ pnpm run harness:partner-managed-validate -- \
 
 The validation command checks whether the bundle is good enough for the first retained run, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready enough to retain.
 
+If you want a faster human-readable gauge instead of JSON, add `--format human`.
+The repo also exposes `pnpm run harness:partner-managed-validate:human` as a convenience wrapper.
+
 Then package the bundle:
 
 ```bash
@@ -107,7 +131,8 @@ pnpm run harness:partner-managed-validate -- \
   --payout-topology ./examples/partner-managed/payout-topology.json \
   --creator-fee-state ./examples/partner-managed/creator-fee-state.json \
   --revenue-events ./examples/partner-managed/revenue-events.json \
-  --repayment-mode ./examples/partner-managed/repayment-mode.json
+  --repayment-mode ./examples/partner-managed/repayment-mode.json \
+  --format human
 pnpm run harness:partner-managed-pack-from-files -- \
   --out-dir ./tmp/harness-runs \
   --launch ./examples/partner-managed/launch.json \

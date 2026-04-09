@@ -40,6 +40,16 @@ test("starter template publishes only working scripts and sample harness command
     true,
   );
 
+  const humanValidateRun = await runPnpm([
+    "--dir",
+    TEMPLATE_DIR,
+    "--silent",
+    "run",
+    "partner:validate:sample:human",
+  ]);
+  assert.match(humanValidateRun.stdout, /current stage: stage_2_observable_payout_path_mvp/);
+  assert.match(humanValidateRun.stdout, /bundle ready for first retained run: yes/);
+
   const packRun = await runPnpm(["--dir", TEMPLATE_DIR, "--silent", "run", "partner:pack:sample"]);
   const pack = JSON.parse(packRun.stdout.trim()) as {
     command: string;
