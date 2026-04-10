@@ -31,16 +31,22 @@ import {
   type ClawPumpLaunch,
 } from "@attn-credit/clawpump";
 import {
+  ATTN_PUMP_AGENT_BORROWER_DEFAULTS,
+  PARTNER_ACTIONS,
+  classifyPartnerActionOutcome,
   classifyPartnerManagedLane,
   createAttnClient,
   createPartnerManagedEvidencePack,
   createPartnerManagedIntegrationDescriptor,
+  createPumpAgentBorrowerTools,
   createPartnerManagedWalletPolicyTemplate,
   parsePartnerManagedEvidencePack,
   parsePartnerManagedIntegrationDescriptor,
   parsePartnerManagedWalletPolicySummary,
+  recommendCatalogAction,
   type ControlProfileId,
   type CreatorIngressMode,
+  type PartnerActionName,
   type PartnerCatalogResponse,
   type PartnerCapabilitiesResponse,
   type PartnerManagedEvidencePack,
@@ -52,6 +58,7 @@ import {
 const DEFAULT_MINT = "clawmint11111111111111111111111111111111";
 const DEFAULT_REPAYMENT_TARGET = "attnrepay111111111111111111111111111111";
 const DEFAULT_OUTPUT_ROOT = "./tmp/partner-managed-harness";
+const DEFAULT_ATTN_BASE_URL = "https://app.attn.markets";
 const DEFAULT_PARTNER_ID = "partner_demo";
 const DEFAULT_DISPLAY_NAME = "Partner Demo";
 const LEGACY_DEFAULT_PARTNER_ID = "clawpump";
@@ -69,7 +76,10 @@ type CanonicalCommandName =
   | "partner-managed-mock-pilot"
   | "partner-managed-mock-matrix"
   | "partner-managed-pack-from-files"
-  | "partner-managed-validate";
+  | "partner-managed-validate"
+  | "attn-live-catalog"
+  | "attn-live-capabilities"
+  | "attn-live-action";
 type RunCommandName = "partner-managed-mock-pilot" | "partner-managed-pack-from-files";
 type AcceptedCommandName =
   | CanonicalCommandName
@@ -108,6 +118,17 @@ type CliOptions = {
   partnerId: string;
   displayName: string;
   format: OutputFormat;
+  actionName?: PartnerActionName;
+  mint?: string;
+  borrowerWallet?: string;
+  sessionId?: string;
+  sessionToken?: string;
+  facilityPubkey?: string;
+  window?: "30d" | "90d" | "all";
+  targetWallet?: string;
+  txSignatures: string[];
+  mints?: string[];
+  payloadFile?: string;
 };
 
 type Logger = {
@@ -190,6 +211,69 @@ type MatrixSummary = {
   }>;
 };
 
+type LiveCatalogSummary = {
+  ok: boolean;
+  command: "attn-live-catalog";
+  run_id: string;
+  run_dir: string;
+  log_path: string;
+  base_url: string;
+  lane_id: string;
+  capital_source: string;
+  funding_mode: string;
+  revenue_source: string;
+  current_callable_lane_contract: string;
+  live_claim_scope: string;
+  can_agent_complete_real_credit_now: boolean;
+  real_credit_blockers: string[];
+  agent_operability_state: string;
+  recommended_package: string | null;
+  recommended_wrapper: string | null;
+  recommendation: string;
+  recommendation_reasons: string[];
+  action_order: string[];
+  artifact_paths: Record<string, string>;
+};
+
+type LiveCapabilitiesSummary = {
+  ok: boolean;
+  command: "attn-live-capabilities";
+  run_id: string;
+  run_dir: string;
+  log_path: string;
+  base_url: string;
+  preset_id: string;
+  creator_ingress_mode: string;
+  control_profile_id: string;
+  state: string | null;
+  proof_state: string | null;
+  public_claim_state: string | null;
+  ready_actions: string[];
+  blocked_actions: string[];
+  preview_actions: string[];
+  context_required_actions: string[];
+  artifact_paths: Record<string, string>;
+};
+
+type LiveActionSummary = {
+  ok: boolean;
+  command: "attn-live-action";
+  run_id: string;
+  run_dir: string;
+  log_path: string;
+  base_url: string;
+  action: PartnerActionName;
+  state: string | null;
+  proof_state: string | null;
+  public_claim_state: string | null;
+  agent_lane_state: string | null;
+  agent_tool_mode: string | null;
+  decision_status: string;
+  blockers: string[];
+  next_actions: string[];
+  artifact_paths: Record<string, string>;
+};
+
 async function writeLoggedJson(
   logger: Logger,
   relativePath: string,
@@ -217,6 +301,9 @@ function printHelp(): void {
       "  attn-partner-harness partner-managed-mock-matrix [options]",
       "  attn-partner-harness partner-managed-pack-from-files [options]",
       "  attn-partner-harness partner-managed-validate [options]",
+      "  attn-partner-harness attn-live-catalog [options]",
+      "  attn-partner-harness attn-live-capabilities [options]",
+      "  attn-partner-harness attn-live-action [options]",
       "",
       "Legacy compatibility aliases:",
       "  attn-partner-harness partner-managed-doctor [options]",
@@ -243,6 +330,17 @@ function printHelp(): void {
       "  --proof-state <state>           Proof posture to stamp on file-backed receipts",
       "  --partner-id <id>               Partner id to retain in descriptor/evidence output",
       "  --display-name <name>           Display name to retain in descriptor/evidence output",
+      "  --action <name>                 Action for attn-live-action",
+      "  --mint <address>                Mint for attn-live-action check_credit or session flow",
+      "  --borrower-wallet <address>     Borrower wallet for attn-live-action when required",
+      "  --session-id <id>               Session id for attn-live-action when required",
+      "  --session-token <token>         Session token for attn-live-action when required",
+      "  --facility-pubkey <key>         Facility pubkey for attn-live-action when required",
+      "  --window <30d|90d|all>          Window for attn-live-action check_credit",
+      "  --target-wallet <address>       Target wallet for attn-live-action offboard",
+      "  --tx-signature <sig>            Transaction signature for attn-live-action; repeatable",
+      "  --mints <a,b,c>                 Comma-separated mint list for attn-live-action offboard",
+      "  --payload-file <path>           JSON payload file for attn-live-action",
       "  --format <json|human>          Output format for stdout summary",
       "",
     ].join("\n"),
@@ -346,6 +444,9 @@ const COMMAND_ALIASES: Record<AcceptedCommandName, CanonicalCommandName> = {
   "partner-managed-mock-matrix": "partner-managed-mock-matrix",
   "partner-managed-pack-from-files": "partner-managed-pack-from-files",
   "partner-managed-validate": "partner-managed-validate",
+  "attn-live-catalog": "attn-live-catalog",
+  "attn-live-capabilities": "attn-live-capabilities",
+  "attn-live-action": "attn-live-action",
   "partner-managed-doctor": "partner-managed-validate",
   "clawpump-mock-pilot": "partner-managed-mock-pilot",
   "clawpump-mock-matrix": "partner-managed-mock-matrix",
@@ -383,6 +484,7 @@ function parseArgs(argv: string[]): CliOptions {
     partnerId: useLegacyDefaults ? LEGACY_DEFAULT_PARTNER_ID : DEFAULT_PARTNER_ID,
     displayName: useLegacyDefaults ? LEGACY_DEFAULT_DISPLAY_NAME : DEFAULT_DISPLAY_NAME,
     format: "json",
+    txSignatures: [],
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -436,6 +538,42 @@ function parseArgs(argv: string[]): CliOptions {
       case "--display-name":
         options.displayName = assertString(rest[++index], token);
         break;
+      case "--action":
+        options.actionName = assertString(rest[++index], token) as PartnerActionName;
+        break;
+      case "--mint":
+        options.mint = assertString(rest[++index], token);
+        break;
+      case "--borrower-wallet":
+        options.borrowerWallet = assertString(rest[++index], token);
+        break;
+      case "--session-id":
+        options.sessionId = assertString(rest[++index], token);
+        break;
+      case "--session-token":
+        options.sessionToken = assertString(rest[++index], token);
+        break;
+      case "--facility-pubkey":
+        options.facilityPubkey = assertString(rest[++index], token);
+        break;
+      case "--window":
+        options.window = assertString(rest[++index], token) as "30d" | "90d" | "all";
+        break;
+      case "--target-wallet":
+        options.targetWallet = assertString(rest[++index], token);
+        break;
+      case "--tx-signature":
+        options.txSignatures.push(assertString(rest[++index], token));
+        break;
+      case "--mints":
+        options.mints = assertString(rest[++index], token)
+          .split(",")
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0);
+        break;
+      case "--payload-file":
+        options.payloadFile = assertString(rest[++index], token);
+        break;
       case "--format":
         options.format = assertString(rest[++index], token) as OutputFormat;
         break;
@@ -450,6 +588,21 @@ function parseArgs(argv: string[]): CliOptions {
 
   options.proofState = z.enum(CLAWPUMP_PROOF_STATES).parse(options.proofState);
   options.format = z.enum(["json", "human"]).parse(options.format);
+  if (options.actionName) {
+    options.actionName = z.enum(PARTNER_ACTIONS).parse(options.actionName);
+  }
+  if (
+    options.command === "attn-live-catalog" ||
+    options.command === "attn-live-capabilities" ||
+    options.command === "attn-live-action"
+  ) {
+    options.attnBaseUrl = options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL;
+    options.presetId = options.presetId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.preset_id;
+    options.creatorIngressMode =
+      options.creatorIngressMode ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.creator_ingress_mode;
+    options.controlProfileId =
+      options.controlProfileId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.control_profile_id;
+  }
   return options;
 }
 
@@ -922,7 +1075,99 @@ function renderMatrixSummaryHuman(summary: MatrixSummary): string {
   return `${lines.join("\n")}\n`;
 }
 
-function writeSummary(summary: RunSummary | DoctorSummary | MatrixSummary, format: OutputFormat): void {
+function renderLiveCatalogSummaryHuman(summary: LiveCatalogSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `ok: ${summary.ok ? "yes" : "no"}`,
+    `live claim scope: ${summary.live_claim_scope}`,
+    `real credit now: ${summary.can_agent_complete_real_credit_now ? "yes" : "no"}`,
+    `agent operability: ${summary.agent_operability_state}`,
+    `lane contract: ${summary.current_callable_lane_contract}`,
+    `capital source: ${summary.capital_source}`,
+    `funding mode: ${summary.funding_mode}`,
+    `revenue source: ${summary.revenue_source}`,
+    `recommendation: ${summary.recommendation}`,
+    `run dir: ${summary.run_dir}`,
+  ];
+
+  lines.push(
+    `real credit blockers: ${
+      summary.real_credit_blockers.length > 0 ? summary.real_credit_blockers.join(", ") : "none"
+    }`,
+  );
+  lines.push(
+    `recommendation reasons: ${
+      summary.recommendation_reasons.length > 0
+        ? summary.recommendation_reasons.join(", ")
+        : "none"
+    }`,
+  );
+  if (summary.recommended_wrapper) {
+    lines.push(`recommended wrapper: ${summary.recommended_wrapper}`);
+  }
+  if (summary.recommended_package) {
+    lines.push(`recommended package: ${summary.recommended_package}`);
+  }
+  if (summary.action_order.length > 0) {
+    lines.push(`action order: ${summary.action_order.join(", ")}`);
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function renderLiveCapabilitiesSummaryHuman(summary: LiveCapabilitiesSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `ok: ${summary.ok ? "yes" : "no"}`,
+    `state: ${summary.state}`,
+    `proof state: ${summary.proof_state ?? "unknown"}`,
+    `public claim state: ${summary.public_claim_state ?? "unknown"}`,
+    `preset: ${summary.preset_id}`,
+    `creator ingress mode: ${summary.creator_ingress_mode}`,
+    `control profile: ${summary.control_profile_id}`,
+    `run dir: ${summary.run_dir}`,
+    `ready actions: ${summary.ready_actions.length > 0 ? summary.ready_actions.join(", ") : "none"}`,
+    `blocked actions: ${summary.blocked_actions.length > 0 ? summary.blocked_actions.join(", ") : "none"}`,
+    `context required actions: ${
+      summary.context_required_actions.length > 0
+        ? summary.context_required_actions.join(", ")
+        : "none"
+    }`,
+  ];
+  if (summary.preview_actions.length > 0) {
+    lines.push(`preview actions: ${summary.preview_actions.join(", ")}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderLiveActionSummaryHuman(summary: LiveActionSummary): string {
+  const lines = [
+    `command: ${summary.command}`,
+    `ok: ${summary.ok ? "yes" : "no"}`,
+    `action: ${summary.action}`,
+    `state: ${summary.state}`,
+    `decision: ${summary.decision_status}`,
+    `proof state: ${summary.proof_state ?? "unknown"}`,
+    `public claim state: ${summary.public_claim_state ?? "unknown"}`,
+    `agent lane state: ${summary.agent_lane_state ?? "unknown"}`,
+    `agent tool mode: ${summary.agent_tool_mode ?? "unknown"}`,
+    `run dir: ${summary.run_dir}`,
+    `blockers: ${summary.blockers.length > 0 ? summary.blockers.join(", ") : "none"}`,
+    `next actions: ${summary.next_actions.length > 0 ? summary.next_actions.join(", ") : "none"}`,
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+function writeSummary(
+  summary:
+    | RunSummary
+    | DoctorSummary
+    | MatrixSummary
+    | LiveCatalogSummary
+    | LiveCapabilitiesSummary
+    | LiveActionSummary,
+  format: OutputFormat,
+): void {
   if (format === "json") {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     return;
@@ -935,6 +1180,21 @@ function writeSummary(summary: RunSummary | DoctorSummary | MatrixSummary, forma
 
   if (summary.command === "partner-managed-mock-matrix") {
     process.stdout.write(renderMatrixSummaryHuman(summary));
+    return;
+  }
+
+  if (summary.command === "attn-live-catalog") {
+    process.stdout.write(renderLiveCatalogSummaryHuman(summary));
+    return;
+  }
+
+  if (summary.command === "attn-live-capabilities") {
+    process.stdout.write(renderLiveCapabilitiesSummaryHuman(summary));
+    return;
+  }
+
+  if (summary.command === "attn-live-action") {
+    process.stdout.write(renderLiveActionSummaryHuman(summary));
     return;
   }
 
@@ -1822,6 +2082,236 @@ async function runClawpumpMockMatrix(options: CliOptions): Promise<MatrixSummary
   return summary;
 }
 
+async function loadOptionalPayload(filePath: string | undefined): Promise<Record<string, unknown> | undefined> {
+  if (!filePath) return undefined;
+  const sourcePath = path.resolve(filePath);
+  const raw = await readFile(sourcePath, "utf8");
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`payload file must contain a JSON object: ${sourcePath}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+async function runAttnLiveCatalog(options: CliOptions): Promise<LiveCatalogSummary> {
+  const logger = await createLogger(options.outDir);
+  const artifactPaths: Record<string, string> = {};
+  await logger.log({
+    step: "attn.live.catalog",
+    status: "started",
+    base_url: options.attnBaseUrl,
+  });
+
+  const client = createAttnClient({ baseUrl: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL });
+  const tools = createPumpAgentBorrowerTools({ client });
+  const catalog = await tools.catalog({
+    cluster: ATTN_PUMP_AGENT_BORROWER_DEFAULTS.cluster,
+    preset_id: options.presetId,
+    creator_ingress_mode: options.creatorIngressMode,
+    control_profile_id: options.controlProfileId,
+  });
+  const summary = await tools.summarizeCatalog({
+    preset_id: options.presetId,
+    creator_ingress_mode: options.creatorIngressMode,
+    control_profile_id: options.controlProfileId,
+  });
+  const recommendation = recommendCatalogAction(summary);
+
+  artifactPaths.catalog = await logger.writeJson("attn-live/catalog.json", catalog);
+  artifactPaths.catalog_summary = await logger.writeJson(
+    "attn-live/catalog-summary.json",
+    summary,
+  );
+  artifactPaths.catalog_recommendation = await logger.writeJson(
+    "attn-live/catalog-recommendation.json",
+    recommendation,
+  );
+
+  const result: LiveCatalogSummary = {
+    ok: catalog.ok === true,
+    command: "attn-live-catalog",
+    run_id: path.basename(logger.runDir),
+    run_dir: logger.runDir,
+    log_path: logger.logPath,
+    base_url: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL,
+    lane_id: catalog.lane.lane_id,
+    capital_source: catalog.lane.capital_source,
+    funding_mode: catalog.lane.funding_mode,
+    revenue_source: catalog.lane.revenue_source,
+    current_callable_lane_contract: catalog.lane.current_callable_lane_contract,
+    live_claim_scope: summary.live_claim_scope,
+    can_agent_complete_real_credit_now: catalog.current_truth.can_agent_complete_real_credit_now,
+    real_credit_blockers: summary.real_credit_blockers,
+    agent_operability_state: catalog.current_truth.agent_operability_state,
+    recommended_package: catalog.current_truth.recommended_package ?? null,
+    recommended_wrapper: catalog.current_truth.recommended_wrapper ?? null,
+    recommendation: recommendation.recommendation,
+    recommendation_reasons: recommendation.recommendation_reasons,
+    action_order: [...catalog.action_order],
+    artifact_paths: artifactPaths,
+  };
+
+  artifactPaths.summary = await logger.writeJson("summary.json", result);
+  await logger.log({
+    step: "attn.live.catalog",
+    status: result.ok ? "ok" : "degraded",
+    artifact: artifactPaths.summary,
+  });
+  return result;
+}
+
+async function runAttnLiveCapabilities(
+  options: CliOptions,
+): Promise<LiveCapabilitiesSummary> {
+  const logger = await createLogger(options.outDir);
+  const artifactPaths: Record<string, string> = {};
+  await logger.log({
+    step: "attn.live.capabilities",
+    status: "started",
+    base_url: options.attnBaseUrl,
+    preset_id: options.presetId,
+  });
+
+  const client = createAttnClient({ baseUrl: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL });
+  const tools = createPumpAgentBorrowerTools({ client });
+  const capabilities = await tools.capabilities({
+    preset_id: options.presetId,
+    creator_ingress_mode: options.creatorIngressMode,
+    control_profile_id: options.controlProfileId,
+  });
+  const summary = await tools.summarizeCapabilities({
+    preset_id: options.presetId,
+    creator_ingress_mode: options.creatorIngressMode,
+    control_profile_id: options.controlProfileId,
+  });
+
+  artifactPaths.capabilities = await logger.writeJson(
+    "attn-live/capabilities.json",
+    capabilities,
+  );
+  artifactPaths.capabilities_summary = await logger.writeJson(
+    "attn-live/capabilities-summary.json",
+    summary,
+  );
+
+  const result: LiveCapabilitiesSummary = {
+    ok: capabilities.ok === true,
+    command: "attn-live-capabilities",
+    run_id: path.basename(logger.runDir),
+    run_dir: logger.runDir,
+    log_path: logger.logPath,
+    base_url: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL,
+    preset_id: options.presetId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.preset_id,
+    creator_ingress_mode:
+      options.creatorIngressMode ??
+      ATTN_PUMP_AGENT_BORROWER_DEFAULTS.creator_ingress_mode,
+    control_profile_id:
+      options.controlProfileId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.control_profile_id,
+    state: capabilities.state ?? null,
+    proof_state: capabilities.proof_state ?? null,
+    public_claim_state: capabilities.public_claim_state ?? null,
+    ready_actions: summary.ready_actions,
+    blocked_actions: summary.blocked_actions,
+    preview_actions: summary.preview_actions,
+    context_required_actions: summary.context_required_actions,
+    artifact_paths: artifactPaths,
+  };
+
+  artifactPaths.summary = await logger.writeJson("summary.json", result);
+  await logger.log({
+    step: "attn.live.capabilities",
+    status: result.ok ? "ok" : "degraded",
+    artifact: artifactPaths.summary,
+  });
+  return result;
+}
+
+async function runAttnLiveAction(options: CliOptions): Promise<LiveActionSummary> {
+  if (!options.actionName) {
+    throw new Error("attn-live-action requires --action");
+  }
+
+  const logger = await createLogger(options.outDir);
+  const artifactPaths: Record<string, string> = {};
+  const payload = await loadOptionalPayload(options.payloadFile);
+  await logger.log({
+    step: "attn.live.action",
+    status: "started",
+    base_url: options.attnBaseUrl,
+    action: options.actionName,
+  });
+
+  const client = createAttnClient({ baseUrl: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL });
+  const response = await client.action({
+    chain: "solana",
+    cluster: "mainnet-beta",
+    preset_id: options.presetId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.preset_id,
+    creator_ingress_mode:
+      options.creatorIngressMode ??
+      ATTN_PUMP_AGENT_BORROWER_DEFAULTS.creator_ingress_mode,
+    control_profile_id:
+      options.controlProfileId ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.control_profile_id,
+    action: options.actionName,
+    ...(payload ? { payload } : {}),
+    ...(options.mint ? { mint: options.mint } : {}),
+    ...(options.borrowerWallet ? { borrower_wallet: options.borrowerWallet } : {}),
+    ...(options.sessionId ? { session_id: options.sessionId } : {}),
+    ...(options.sessionToken ? { session_token: options.sessionToken } : {}),
+    ...(options.facilityPubkey ? { facility_pubkey: options.facilityPubkey } : {}),
+    ...(options.window ? { window: options.window } : {}),
+    ...(options.targetWallet ? { target_wallet: options.targetWallet } : {}),
+    ...(options.txSignatures.length > 0 ? { tx_signatures: options.txSignatures } : {}),
+    ...(options.mints && options.mints.length > 0 ? { mints: options.mints } : {}),
+  });
+  const outcome = {
+    action: options.actionName,
+    response,
+    decision: classifyPartnerActionOutcome({
+      action: options.actionName,
+      response,
+    }),
+  };
+
+  artifactPaths.action_response = await logger.writeJson(
+    "attn-live/action-response.json",
+    response,
+  );
+  artifactPaths.action_outcome = await logger.writeJson(
+    "attn-live/action-outcome.json",
+    outcome,
+  );
+  if (payload) {
+    artifactPaths.payload = await logger.writeJson("attn-live/payload.json", payload);
+  }
+
+  const result: LiveActionSummary = {
+    ok: response.ok === true,
+    command: "attn-live-action",
+    run_id: path.basename(logger.runDir),
+    run_dir: logger.runDir,
+    log_path: logger.logPath,
+    base_url: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL,
+    action: options.actionName,
+    state: response.state ?? null,
+    proof_state: response.proof_state ?? null,
+    public_claim_state: response.public_claim_state ?? null,
+    agent_lane_state: response.agent_lane_state ?? null,
+    agent_tool_mode: response.agent_tool_mode ?? null,
+    decision_status: outcome.decision.status,
+    blockers: outcome.decision.blockers,
+    next_actions: outcome.decision.next_actions,
+    artifact_paths: artifactPaths,
+  };
+
+  artifactPaths.summary = await logger.writeJson("summary.json", result);
+  await logger.log({
+    step: "attn.live.action",
+    status: result.ok ? "ok" : "degraded",
+    artifact: artifactPaths.summary,
+  });
+  return result;
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   if (options.command === "partner-managed-mock-pilot") {
@@ -1844,6 +2334,24 @@ async function main(): Promise<void> {
   }
   if (options.command === "partner-managed-mock-matrix") {
     const summary = await runClawpumpMockMatrix(options);
+    writeSummary(summary, options.format);
+    process.exitCode = summary.ok ? 0 : 1;
+    return;
+  }
+  if (options.command === "attn-live-catalog") {
+    const summary = await runAttnLiveCatalog(options);
+    writeSummary(summary, options.format);
+    process.exitCode = summary.ok ? 0 : 1;
+    return;
+  }
+  if (options.command === "attn-live-capabilities") {
+    const summary = await runAttnLiveCapabilities(options);
+    writeSummary(summary, options.format);
+    process.exitCode = summary.ok ? 0 : 1;
+    return;
+  }
+  if (options.command === "attn-live-action") {
+    const summary = await runAttnLiveAction(options);
     writeSummary(summary, options.format);
     process.exitCode = summary.ok ? 0 : 1;
     return;

@@ -245,6 +245,279 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
   }
 });
 
+test("partner harness CLI can gauge the live attn catalog through the public SDK wrapper", async () => {
+  const server = http.createServer((request, response) => {
+    if (request.url?.startsWith("/api/partner/credit/catalog")) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          ok: true,
+          catalog_version: "v1",
+          lane: {
+            lane_id: "pump_creator_fee_borrower_lane",
+            title: "Pump creator-fee borrower lane (Solana-first)",
+            chain: "solana",
+            cluster: "mainnet-beta",
+            preset_id: "solana_borrower_legacy_swig",
+            creator_ingress_mode: "via-borrower",
+            control_profile_id: "attn_default",
+            capital_source: "treasury_wallet",
+            funding_mode: "manual_operator_release",
+            production_truth: "executable_private_pilot",
+            lane_contract_state: "treasury_private_pilot",
+            revenue_source: "pumpfun_creator_fees",
+            revenue_unit: "SOL",
+            repayment_source: "swig_controlled_creator_fee_capture",
+            primary_debt_unit: "SOL",
+            current_callable_debt_unit: "SOL",
+            primary_lane_contract: "pump_creator_fee_solana_first",
+            current_callable_lane_contract: "treasury_private_pilot_sol",
+            coexistence_state: "treasury_sol_fallback_primary_pending",
+            proof_state: "current",
+            public_claim_state: "current",
+            blockers: [],
+            blocker_codes: [],
+            next_actions: [],
+            notes: [],
+          },
+          current_truth: {
+            can_agent_discover_lane_now: true,
+            can_agent_start_onboarding_now: true,
+            can_agent_complete_primary_lane_now: false,
+            can_agent_complete_real_credit_now: true,
+            can_agent_complete_public_market_now: false,
+            primary_lane_readiness_state: "blocked_non_sol_dependency",
+            primary_lane_blockers: ["raw_protocol_debt_unit_not_sol_only"],
+            public_market_readiness_state: "blocked_primary_lane",
+            public_market_blockers: ["primary_lane_not_live"],
+            real_credit_blockers: [],
+            live_claim_scope: "callable_fallback_only",
+            closure_hosted_state: {
+              storage_mode: "database",
+              datasource_env_state: "configured",
+              durable_state_backend: "shared_system_kv",
+              persistence_topology: "mixed_persistence",
+              runtime_fallback_state: "fail_closed",
+            },
+            dashboard_speed: {
+              supplied: true,
+              borrower_measured_receipt_count: 1,
+              lender_measured_receipt_count: 0,
+              borrower_blockers: [],
+              lender_blockers: ["lender_dashboard_speed_receipts_missing"],
+            },
+            proof_contract_summary: null,
+            mcp_transport_state: "wrapper_ready",
+            agent_operability_state: "funded_live_ready",
+            recommended_package: "@attn-credit/sdk",
+            recommended_wrapper: "createPumpAgentBorrowerTools",
+            skill_surface_path: "/skill.md",
+            runbook_surface_path: "/partner-credit-runbook.md",
+          },
+          action_order: ["check_credit", "start_onboarding"],
+          routes: [],
+        }),
+      );
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: false }));
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind local test server");
+  }
+
+  try {
+    const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-live-catalog-"));
+    const result = await runCli([
+      "attn-live-catalog",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+    ]);
+
+    assert.equal(result.summary.ok, true);
+    assert.equal(result.summary.live_claim_scope, "callable_fallback_only");
+    assert.equal(result.summary.recommendation, "proceed_with_caution");
+    assert.equal(result.summary.recommended_wrapper, "createPumpAgentBorrowerTools");
+    assert.ok(result.summary.artifact_paths.catalog);
+    assert.ok(result.summary.artifact_paths.catalog_summary);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("partner harness CLI can hit live capabilities and action commands through the public SDK wrapper", async () => {
+  const calls: Array<{ url: string; body?: Record<string, unknown> }> = [];
+  const server = http.createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      const body =
+        chunks.length > 0
+          ? (JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>)
+          : undefined;
+      calls.push({ url: request.url ?? "", body });
+
+      if (request.url === "/api/partner/credit/capabilities") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            ok: true,
+            receipt_type: "partner_capabilities_receipt",
+            request_id: "partner_caps_test",
+            state: "ready",
+            proof_state: "current",
+            public_claim_state: "current",
+            actions: {
+              check_credit: {
+                state: "ready",
+                execution_mode: "read_only",
+                context_requirements: [],
+                blockers: [],
+                next_actions: ["start_onboarding"],
+              },
+              get_attn_alignment_offer: {
+                state: "ready",
+                execution_mode: "read_only",
+                context_requirements: [],
+                blockers: [],
+                next_actions: [],
+              },
+              accept_attn_alignment_offer: {
+                state: "context_required",
+                execution_mode: "blocked",
+                context_requirements: ["session_context"],
+                blockers: [],
+                next_actions: [],
+              },
+              start_onboarding: {
+                state: "ready",
+                execution_mode: "transact_approved",
+                context_requirements: ["payload"],
+                blockers: [],
+                next_actions: [],
+              },
+              get_stage_status: {
+                state: "context_required",
+                execution_mode: "read_only",
+                context_requirements: ["session_id"],
+                blockers: [],
+                next_actions: [],
+              },
+              execute_handoff: {
+                state: "context_required",
+                execution_mode: "transact_approved",
+                context_requirements: ["session_id"],
+                blockers: [],
+                next_actions: [],
+              },
+              open_credit_line: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["session_id", "facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+              repay: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+              offboard: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["session_id", "facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+            },
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/api/partner/credit/action") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            ok: true,
+            receipt_type: "partner_action_receipt",
+            request_id: "partner_action_test",
+            action: body?.action ?? "check_credit",
+            state: "ready",
+            result: {
+              execution_mode: "read_only",
+              verification_state: "evidence_verified",
+            },
+          }),
+        );
+        return;
+      }
+
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ ok: false }));
+    });
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind local test server");
+  }
+
+  try {
+    const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-live-action-"));
+    const capabilities = await runCli([
+      "attn-live-capabilities",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+    ]);
+    const action = await runCli([
+      "attn-live-action",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+      "--action",
+      "check_credit",
+      "--mint",
+      "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+    ]);
+
+    assert.equal(capabilities.summary.ok, true);
+    assert.ok(capabilities.summary.ready_actions.includes("check_credit"));
+    assert.ok(capabilities.summary.ready_actions.includes("start_onboarding"));
+    assert.equal(action.summary.ok, true);
+    assert.equal(action.summary.action, "check_credit");
+    assert.equal(action.summary.decision_status, "ready");
+
+    const capabilitiesCall = calls.find((call) => call.url === "/api/partner/credit/capabilities");
+    const actionCall = calls.find((call) => call.url === "/api/partner/credit/action");
+    assert.ok(capabilitiesCall);
+    assert.equal(capabilitiesCall!.body?.preset_id, "solana_borrower_legacy_swig");
+    assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "via-borrower");
+    assert.ok(actionCall);
+    assert.equal(actionCall!.body?.action, "check_credit");
+    assert.equal(actionCall!.body?.mint, "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu");
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
 test("partner harness CLI can retain a small scenario matrix for comparative analysis", async () => {
   const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-harness-matrix-"));
   const result = await runCli(["partner-managed-mock-matrix", "--out-dir", outDir]);

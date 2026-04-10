@@ -8,7 +8,9 @@ The core partner-managed contract is not limited to creator-fee lanes. It can de
 
 ## What this enables today
 
-Today, this public SDK enables the partner-managed Pump creator-fee-backed credit lane in the sense that it gives attn and a partner one shared contract for:
+Today, this public SDK enables the Pump creator-fee-backed credit lane in two distinct ways.
+
+For a partner-managed own-wallet lane, it gives attn and a partner one shared contract for:
 
 1. describing the current creator-fee or revenue lane,
 2. validating whether the partner data bundle is good enough for a truthful first retained run,
@@ -17,6 +19,8 @@ Today, this public SDK enables the partner-managed Pump creator-fee-backed credi
 5. and scaffolding a partner-side integration without re-inventing the contract.
 
 For a Pump or ClawPump-style partner, that means the SDK is the public contract for qualifying and packaging the creator-fee-backed borrower lane when the partner keeps its own wallet and payout infrastructure.
+
+For the currently hosted attn treasury-funded fallback lane, the public SDK also exposes one bounded live wrapper and live CLI gauge/action commands so a caller can inspect the current callable borrower contract without reconstructing raw catalog fields by hand.
 
 ## What this does not enable by itself
 
@@ -110,6 +114,28 @@ If you are not sure what data to gather first, start with:
 - [PARTNER_DATA_CHECKLIST.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/PARTNER_DATA_CHECKLIST.md)
 
 Legacy `clawpump-*` harness commands still exist as compatibility aliases for the reference adapter. Public docs should prefer the `partner-managed-*` names.
+
+## Hosted attn fallback via the public SDK
+
+If you want to gauge the currently hosted attn treasury-funded Pump creator-fee fallback lane itself, use the live SDK commands:
+
+```bash
+pnpm run harness:attn-live-catalog:human
+pnpm run harness:attn-live-capabilities:human
+pnpm run harness:attn-live-action:human -- \
+  --action check_credit \
+  --mint Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu
+```
+
+Those commands read the canonical hosted borrower contract from `https://app.attn.markets` through the public SDK surface.
+
+They are the public way to:
+
+1. read the live claim boundary for the hosted lane,
+2. inspect which borrower actions are ready versus context-bound,
+3. and execute bounded borrower actions like `check_credit` when the input context is public enough to provide.
+
+They are not a claim that the broader borrower UI, public market, or partner-managed own-wallet runtime is the same thing.
 
 Fresh external repo rule:
 

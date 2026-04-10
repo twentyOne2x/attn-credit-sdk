@@ -517,13 +517,12 @@ This is the first shipped SDK/runtime layer for the EVM `EIP-8183` lane. It does
 
 For the reference Solidity hook/router/evaluator package, use [`@attn-credit/eip8183`](/Users/user/PycharmProjects/attn-credit/packages/eip8183/README.md).
 
-For a bounded external-agent wrapper over the same API, use [`@attn-credit/agent-tools`](/Users/user/PycharmProjects/attn-credit/packages/agent-tools/README.md).
+For the current hosted treasury-funded Pump creator-fee fallback lane, `@attn-credit/sdk` itself now exports one compact borrower wrapper so callers do not need a separate private package just to consume the hosted catalog/action contract.
 
-When the caller needs one compact discovery/truth surface instead of reconstructing raw catalog fields, use the agent-tools wrapper on top of the SDK:
+When the caller needs one compact discovery/truth surface instead of reconstructing raw catalog fields, use `createPumpAgentBorrowerTools(...)` directly from `@attn-credit/sdk`:
 
 ```ts
-import { createAttnClient } from "@attn-credit/sdk";
-import { createPumpAgentBorrowerTools } from "@attn-credit/agent-tools";
+import { createAttnClient, createPumpAgentBorrowerTools } from "@attn-credit/sdk";
 
 const client = createAttnClient({
   baseUrl: "http://localhost:3000",
@@ -541,5 +540,17 @@ console.log(catalogSummary.speed_posture); // measured | partial | unproven
 ```
 
 That helper preserves the claim-boundary fields from the catalog, including `first_private_lane_semantics` and `pilot_path_truth`, alongside `current_truth.dashboard_speed` without inventing durations or healthy defaults. Use those fields to keep the self-funded private-pilot scope separate from independent-lender or prod claims.
+
+The same public SDK package also drives the live CLI commands exposed by the repo root and the harness package:
+
+```bash
+pnpm run harness:attn-live-catalog:human
+pnpm run harness:attn-live-capabilities:human
+pnpm run harness:attn-live-action:human -- \
+  --action check_credit \
+  --mint Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu
+```
+
+Those commands let a public caller gauge or execute bounded borrower actions against the currently hosted attn callable fallback contract without needing local-only wrappers.
 
 Canonical cross-chain truth and operator sequencing live in [PARTNER_CREDIT_CROSS_CHAIN.md](/Users/user/PycharmProjects/attn-credit/docs/runbooks/PARTNER_CREDIT_CROSS_CHAIN.md).

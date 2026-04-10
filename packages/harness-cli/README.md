@@ -18,6 +18,9 @@ The command surface is:
 2. `partner-managed-mock-matrix`
 3. `partner-managed-pack-from-files`
 4. `partner-managed-validate`
+5. `attn-live-catalog`
+6. `attn-live-capabilities`
+7. `attn-live-action`
 
 It runs one bounded partner-managed revenue scenario and emits:
 1. raw partner-side artifacts
@@ -32,7 +35,7 @@ This harness does not prove:
 1. live access to a real partner backend
 2. treasury funding against a real counterparty
 3. payout-control parity from execution alone
-4. live borrower readiness
+4. broader borrower UI or public-market readiness
 
 It proves the execution contract, the artifact contract, and the failure posture of the public SDK surface.
 
@@ -109,6 +112,26 @@ pnpm run harness:partner-managed-mock-matrix -- --out-dir ./tmp/harness-runs
 ```
 
 The matrix command retains a baseline run plus degraded partner-read scenarios so the stage classifier, residual-risk outputs, and evidence packaging can be compared side by side.
+
+## Hosted attn callable fallback gauge
+
+For the currently hosted attn treasury-funded Pump creator-fee fallback lane, this CLI also exposes three live commands through the public SDK:
+
+```bash
+pnpm run harness:attn-live-catalog:human
+pnpm run harness:attn-live-capabilities:human
+pnpm run harness:attn-live-action:human -- \
+  --action check_credit \
+  --mint Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu
+```
+
+Use those commands when you want to:
+
+1. read the live hosted claim boundary from the canonical host,
+2. see which borrower actions are immediately ready versus context-bound,
+3. and execute a bounded borrower action through the public SDK wrapper without rebuilding the catalog/action contract locally.
+
+Those commands describe the current hosted callable fallback only. They do not prove the partner-managed own-wallet lane, the broader public borrower market, or a canonical borrower UI surface.
 
 ## Fresh external repo acceptance bar
 

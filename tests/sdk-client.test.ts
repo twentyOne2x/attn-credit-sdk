@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ATTN_PUMP_AGENT_BORROWER_DEFAULTS,
   PARTNER_WALLET_POLICY_REQUIREMENT_IDS,
   PARTNER_ACTION_RECEIPT_TYPE,
   PARTNER_CAPABILITIES_RECEIPT_TYPE,
   SDK_CLIENT_DEFAULTS,
   buildAttnEip8183HookEnvelope,
+  classifyPartnerActionOutcome,
   createPartnerManagedWalletPolicyTemplate,
   createPartnerManagedIntegrationDescriptor,
   createPartnerManagedEvidencePack,
@@ -19,9 +21,12 @@ import {
   parsePartnerManagedWalletPolicySummary,
   createAttnEip8183SettlementReceipt,
   createAttnClient,
+  createPumpAgentBorrowerTools,
   classifyPartnerManagedLane,
   decodeAttnEip8183Metadata,
   partnerReceiptTypeForRoute,
+  recommendCatalogAction,
+  summarizeCatalog,
 } from "../packages/sdk/src";
 
 test("sdk exposes canonical defaults and receipt mapping", () => {
@@ -484,6 +489,301 @@ test("sdk client can fetch the free partner catalog without explicit input", asy
   assert.equal(calls[0]!.url, "http://localhost:3000/api/partner/credit/catalog");
 });
 
+test("sdk exposes a public catalog summary and recommendation helper", () => {
+  const summary = summarizeCatalog({
+    ok: true,
+    catalog_version: "v1",
+    lane: {
+      lane_id: "pump_creator_fee_borrower_lane",
+      title: "Pump creator-fee borrower lane (Solana-first)",
+      chain: "solana",
+      cluster: "mainnet-beta",
+      preset_id: "solana_borrower_legacy_swig",
+      creator_ingress_mode: "via-borrower",
+      control_profile_id: "attn_default",
+      capital_source: "treasury_wallet",
+      funding_mode: "manual_operator_release",
+      production_truth: "executable_private_pilot",
+      lane_contract_state: "treasury_private_pilot",
+      revenue_source: "pumpfun_creator_fees",
+      revenue_unit: "SOL",
+      repayment_source: "swig_controlled_creator_fee_capture",
+      primary_debt_unit: "SOL",
+      current_callable_debt_unit: "SOL",
+      primary_lane_contract: "pump_creator_fee_solana_first",
+      current_callable_lane_contract: "treasury_private_pilot_sol",
+      coexistence_state: "treasury_sol_fallback_primary_pending",
+      proof_state: "current",
+      public_claim_state: "current",
+      blockers: [],
+      blocker_codes: [],
+      next_actions: [],
+      notes: [],
+    },
+    current_truth: {
+      can_agent_discover_lane_now: true,
+      can_agent_start_onboarding_now: true,
+      can_agent_complete_primary_lane_now: false,
+      can_agent_complete_real_credit_now: true,
+      can_agent_complete_public_market_now: false,
+      primary_lane_readiness_state: "blocked_non_sol_dependency",
+      primary_lane_blockers: ["raw_protocol_debt_unit_not_sol_only"],
+      public_market_readiness_state: "blocked_primary_lane",
+      public_market_blockers: ["primary_lane_not_live"],
+      real_credit_blockers: [],
+      live_claim_scope: "callable_fallback_only",
+      closure_hosted_state: {
+        storage_mode: "database",
+        datasource_env_state: "configured",
+        durable_state_backend: "shared_system_kv",
+        persistence_topology: "mixed_persistence",
+        runtime_fallback_state: "fail_closed",
+      },
+      dashboard_speed: {
+        supplied: true,
+        borrower_measured_receipt_count: 1,
+        lender_measured_receipt_count: 0,
+        borrower_blockers: [],
+        lender_blockers: ["lender_dashboard_speed_receipts_missing"],
+      },
+      proof_contract_summary: null,
+      mcp_transport_state: "wrapper_ready",
+      agent_operability_state: "funded_live_ready",
+      recommended_package: "@attn-credit/sdk",
+      recommended_wrapper: "createPumpAgentBorrowerTools",
+      skill_surface_path: "/skill.md",
+      runbook_surface_path: "/partner-credit-runbook.md",
+    },
+    action_order: ["check_credit", "start_onboarding"],
+    routes: [],
+  });
+
+  assert.equal(summary.live_claim_scope, "callable_fallback_only");
+  assert.equal(summary.hosted_state_posture, "shared_kv_fail_closed");
+  assert.equal(summary.speed_posture, "partial");
+  assert.deepEqual(summary.speed_blockers, ["lender_dashboard_speed_receipts_missing"]);
+
+  const recommendation = recommendCatalogAction(summary);
+  assert.equal(recommendation.recommendation, "proceed_with_caution");
+  assert.ok(
+    recommendation.recommendation_reasons.includes("live_claim_scope_callable_fallback_only"),
+  );
+  assert.ok(recommendation.recommendation_reasons.includes("speed_posture_partial"));
+});
+
+test("sdk exposes public pump borrower tools for the hosted callable fallback", async () => {
+  const calls: Array<{ url: string; method: string; body?: Record<string, unknown> }> = [];
+  const client = createAttnClient({
+    baseUrl: "http://localhost:3000",
+    fetch: async (input, init) => {
+      const method = String(init?.method ?? "GET");
+      const url = String(input);
+      const body =
+        typeof init?.body === "string"
+          ? (JSON.parse(String(init.body)) as Record<string, unknown>)
+          : undefined;
+      calls.push({ url, method, body });
+
+      if (url.includes("/api/partner/credit/catalog")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            catalog_version: "v1",
+            lane: {
+              lane_id: "pump_creator_fee_borrower_lane",
+              title: "Pump creator-fee borrower lane (Solana-first)",
+              chain: "solana",
+              cluster: "mainnet-beta",
+              preset_id: "solana_borrower_legacy_swig",
+              creator_ingress_mode: "via-borrower",
+              control_profile_id: "attn_default",
+              capital_source: "treasury_wallet",
+              funding_mode: "manual_operator_release",
+              production_truth: "executable_private_pilot",
+              lane_contract_state: "treasury_private_pilot",
+              revenue_source: "pumpfun_creator_fees",
+              revenue_unit: "SOL",
+              repayment_source: "swig_controlled_creator_fee_capture",
+              primary_debt_unit: "SOL",
+              current_callable_debt_unit: "SOL",
+              primary_lane_contract: "pump_creator_fee_solana_first",
+              current_callable_lane_contract: "treasury_private_pilot_sol",
+              coexistence_state: "treasury_sol_fallback_primary_pending",
+              proof_state: "current",
+              public_claim_state: "current",
+              blockers: [],
+              blocker_codes: [],
+              next_actions: [],
+              notes: [],
+            },
+            current_truth: {
+              can_agent_discover_lane_now: true,
+              can_agent_start_onboarding_now: true,
+              can_agent_complete_primary_lane_now: false,
+              can_agent_complete_real_credit_now: true,
+              can_agent_complete_public_market_now: false,
+              primary_lane_readiness_state: "blocked_non_sol_dependency",
+              primary_lane_blockers: ["raw_protocol_debt_unit_not_sol_only"],
+              public_market_readiness_state: "blocked_primary_lane",
+              public_market_blockers: ["primary_lane_not_live"],
+              real_credit_blockers: [],
+              live_claim_scope: "callable_fallback_only",
+              proof_contract_summary: null,
+              dashboard_speed: {
+                supplied: true,
+                borrower_measured_receipt_count: 1,
+                lender_measured_receipt_count: 1,
+                borrower_blockers: [],
+                lender_blockers: [],
+              },
+              mcp_transport_state: "wrapper_ready",
+              agent_operability_state: "funded_live_ready",
+              recommended_package: "@attn-credit/sdk",
+              recommended_wrapper: "createPumpAgentBorrowerTools",
+              skill_surface_path: "/skill.md",
+              runbook_surface_path: "/partner-credit-runbook.md",
+            },
+            action_order: ["check_credit", "start_onboarding"],
+            routes: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/partner/credit/capabilities")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            receipt_type: PARTNER_CAPABILITIES_RECEIPT_TYPE,
+            request_id: "partner_caps_test",
+            state: "ready",
+            actions: {
+              check_credit: {
+                state: "ready",
+                execution_mode: "read_only",
+                context_requirements: [],
+                blockers: [],
+                next_actions: ["start_onboarding"],
+              },
+              get_attn_alignment_offer: {
+                state: "ready",
+                execution_mode: "read_only",
+                context_requirements: [],
+                blockers: [],
+                next_actions: [],
+              },
+              accept_attn_alignment_offer: {
+                state: "context_required",
+                execution_mode: "blocked",
+                context_requirements: ["session_context"],
+                blockers: [],
+                next_actions: [],
+              },
+              start_onboarding: {
+                state: "ready",
+                execution_mode: "transact_approved",
+                context_requirements: ["payload"],
+                blockers: [],
+                next_actions: [],
+              },
+              get_stage_status: {
+                state: "context_required",
+                execution_mode: "read_only",
+                context_requirements: ["session_id"],
+                blockers: [],
+                next_actions: [],
+              },
+              execute_handoff: {
+                state: "context_required",
+                execution_mode: "transact_approved",
+                context_requirements: ["session_id"],
+                blockers: [],
+                next_actions: [],
+              },
+              open_credit_line: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["session_id", "facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+              repay: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+              offboard: {
+                state: "context_required",
+                execution_mode: "manual_client_signature_required",
+                context_requirements: ["session_id", "facility_pubkey"],
+                blockers: [],
+                next_actions: [],
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/partner/credit/action")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            receipt_type: PARTNER_ACTION_RECEIPT_TYPE,
+            request_id: "partner_action_test",
+            action: body?.action ?? "check_credit",
+            state: "ready",
+            result: {
+              execution_mode: "read_only",
+              verification_state: "evidence_verified",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`unexpected url ${url}`);
+    },
+  });
+
+  const tools = createPumpAgentBorrowerTools({ client });
+  const catalogSummary = await tools.summarizeCatalog();
+  const catalogRecommendation = await tools.recommendCatalogAction();
+  const capabilitySummary = await tools.summarizeCapabilities();
+  const checkCredit = await tools.checkCredit({
+    mint: "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+  });
+
+  assert.deepEqual(ATTN_PUMP_AGENT_BORROWER_DEFAULTS, {
+    cluster: "mainnet-beta",
+    preset_id: "solana_borrower_legacy_swig",
+    creator_ingress_mode: "via-borrower",
+    control_profile_id: "attn_default",
+  });
+  assert.equal(catalogSummary.live_claim_scope, "callable_fallback_only");
+  assert.equal(catalogRecommendation.recommendation, "proceed_with_caution");
+  assert.ok(capabilitySummary.ready_actions.includes("check_credit"));
+  assert.ok(capabilitySummary.ready_actions.includes("start_onboarding"));
+  assert.equal(checkCredit.decision.status, "ready");
+  assert.equal(checkCredit.response.action, "check_credit");
+  assert.equal(checkCredit.response.ok, true);
+
+  const catalogCall = calls.find((call) => call.url.includes("/api/partner/credit/catalog"));
+  const capabilitiesCall = calls.find((call) => call.url.endsWith("/api/partner/credit/capabilities"));
+  const actionCall = calls.find((call) => call.url.endsWith("/api/partner/credit/action"));
+
+  assert.ok(catalogCall);
+  assert.ok(catalogCall!.url.includes("preset_id=solana_borrower_legacy_swig"));
+  assert.ok(capabilitiesCall);
+  assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "via-borrower");
+  assert.equal(capabilitiesCall!.body?.control_profile_id, "attn_default");
+  assert.ok(actionCall);
+  assert.equal(actionCall!.body?.action, "check_credit");
+  assert.equal(actionCall!.body?.mint, "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu");
+});
+
 test("sdk client exposes chain adapters for EVM and Solana", async () => {
   const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
   const client = createAttnClient({
@@ -689,6 +989,44 @@ test("sdk client keeps Solana lifecycle context for openCreditLine and offboard"
   assert.deepEqual(calls[0]!.body.tx_signatures, ["draw_sig_mock_1"]);
   assert.equal(calls[1]!.body.action, "offboard");
   assert.equal(calls[1]!.body.facility_pubkey, "Fact111111111111111111111111111111111111111");
+});
+
+test("sdk classifies partner action outcomes for manual signature and blocked cases", () => {
+  const manualDecision = classifyPartnerActionOutcome({
+    action: "open_credit_line",
+    response: {
+      ok: true,
+      receipt_type: PARTNER_ACTION_RECEIPT_TYPE,
+      request_id: "partner_manual",
+      action: "open_credit_line",
+      state: "ready",
+      result: {
+        execution_mode: "manual_client_signature_required",
+      },
+    },
+  });
+
+  assert.equal(manualDecision.status, "await_human_signature");
+  assert.equal(manualDecision.requires_human_signature, true);
+
+  const blockedDecision = classifyPartnerActionOutcome({
+    action: "execute_handoff",
+    response: {
+      ok: false,
+      receipt_type: PARTNER_ACTION_RECEIPT_TYPE,
+      request_id: "partner_blocked",
+      action: "execute_handoff",
+      state: "blocked",
+      blockers: ["treasury_release_required"],
+      next_actions: ["operator_fund_treasury"],
+    },
+    attemptCount: 2,
+    maxAttempts: 2,
+  });
+
+  assert.equal(blockedDecision.status, "escalate");
+  assert.deepEqual(blockedDecision.blockers, ["treasury_release_required"]);
+  assert.deepEqual(blockedDecision.next_actions, ["operator_fund_treasury"]);
 });
 
 test("sdk exposes EIP-8183 metadata and receipt helpers", () => {

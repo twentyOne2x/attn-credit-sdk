@@ -1,6 +1,9 @@
 import type {
   AttnChain,
+  ControlProfileId,
+  CreatorIngressMode,
   PartnerActionContextRequest,
+  PartnerActionName,
   PartnerActionRequest,
   PartnerActionResponse,
   PartnerApiResponse,
@@ -11,6 +14,7 @@ import type {
   PartnerCapabilitiesResponse,
   PartnerStageStatusRequest,
   PartnerStageStatusResponse,
+  SupportedCluster,
 } from "./schema";
 import { inferChainFromPresetId, withPartnerDefaults } from "./schema";
 import {
@@ -42,6 +46,107 @@ export const attnEip8183Helpers = {
 
 export type AttnEip8183Helpers = typeof attnEip8183Helpers;
 
+export const ATTN_AGENT_BORROWER_ACTION_ORDER = [
+  "check_credit",
+  "get_attn_alignment_offer",
+  "accept_attn_alignment_offer",
+  "start_onboarding",
+  "get_stage_status",
+  "execute_handoff",
+  "open_credit_line",
+  "repay",
+  "offboard",
+] as const;
+
+export type AttnAgentBorrowerAction = (typeof ATTN_AGENT_BORROWER_ACTION_ORDER)[number];
+export type AttnAgentDecisionStatus = "ready" | "await_human_signature" | "blocked" | "escalate";
+export type AttnAgentCatalogSpeedPosture = "measured" | "partial" | "unproven";
+export type AttnAgentCatalogHostedStatePosture =
+  | "shared_kv_fail_closed"
+  | "filesystem_active"
+  | "unknown";
+export type AttnAgentCatalogRecommendation =
+  | "proceed_read_only"
+  | "proceed_with_caution"
+  | "escalate_or_block";
+
+export type AttnAgentDecision = {
+  status: AttnAgentDecisionStatus;
+  must_stop: boolean;
+  requires_human_signature: boolean;
+  should_escalate: boolean;
+  attempt_count: number;
+  max_attempts: number;
+  blockers: string[];
+  next_actions: string[];
+  agent_lane_state?: string;
+  proof_state?: string;
+  public_claim_state?: string;
+};
+
+export type AttnAgentActionOutcome = {
+  action: PartnerActionName;
+  response: PartnerActionResponse;
+  decision: AttnAgentDecision;
+};
+
+export type AttnAgentCapabilitiesOutcome = {
+  response: PartnerCapabilitiesResponse;
+  ready_actions: PartnerActionName[];
+  blocked_actions: PartnerActionName[];
+  preview_actions: PartnerActionName[];
+  context_required_actions: PartnerActionName[];
+};
+
+export type AttnAgentCatalogOutcome = {
+  response: PartnerCatalogResponse;
+  live_claim_scope: PartnerCatalogResponse["current_truth"]["live_claim_scope"];
+  real_credit_blockers: string[];
+  closure_hosted_state: PartnerCatalogResponse["current_truth"]["closure_hosted_state"] | null;
+  first_private_lane_semantics:
+    PartnerCatalogResponse["current_truth"]["first_private_lane_semantics"] | null;
+  pilot_path_truth: PartnerCatalogResponse["current_truth"]["pilot_path_truth"] | null;
+  private_parity_receipt:
+    PartnerCatalogResponse["current_truth"]["private_parity_receipt"] | null;
+  hosted_state_posture: AttnAgentCatalogHostedStatePosture;
+  dashboard_speed: NonNullable<PartnerCatalogResponse["current_truth"]["dashboard_speed"]> | null;
+  speed_posture: AttnAgentCatalogSpeedPosture;
+  speed_blockers: string[];
+};
+
+export type AttnAgentCatalogRecommendationOutcome = AttnAgentCatalogOutcome & {
+  recommendation: AttnAgentCatalogRecommendation;
+  recommendation_reasons: string[];
+};
+
+export type AttnAgentDefaults = {
+  preset_id: string;
+  cluster?: SupportedCluster;
+  creator_ingress_mode?: CreatorIngressMode;
+  control_profile_id?: ControlProfileId;
+};
+
+export type AttnAgentLoanToolsOptions = {
+  client: ReturnType<typeof createAttnClient>;
+  chain: AttnChain;
+  defaults: AttnAgentDefaults;
+  maxAttemptsPerAction?: number;
+};
+
+export const ATTN_PUMP_AGENT_BORROWER_DEFAULTS = {
+  cluster: "mainnet-beta" as SupportedCluster,
+  preset_id: "solana_borrower_legacy_swig",
+  creator_ingress_mode: "via-borrower" as CreatorIngressMode,
+  control_profile_id: "attn_default" as ControlProfileId,
+};
+
+export type AttnPumpAgentBorrowerToolsOptions = {
+  client: ReturnType<typeof createAttnClient>;
+  cluster?: SupportedCluster;
+  control_profile_id?: ControlProfileId;
+  maxAttemptsPerAction?: number;
+};
+
 function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
@@ -64,6 +169,89 @@ function buildQuery(params: Record<string, unknown>): string {
   }
   const serialized = search.toString();
   return serialized.length > 0 ? `?${serialized}` : "";
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : [];
+}
+
+function executionModeFromResponse(response: PartnerActionResponse): string | null {
+  const result = response.result;
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return null;
+  }
+  const executionMode = (result as Record<string, unknown>).execution_mode;
+  return typeof executionMode === "string" ? executionMode : null;
+}
+
+function verificationStateFromResponse(response: PartnerActionResponse): string | null {
+  const result = response.result;
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return null;
+  }
+  const verificationState = (result as Record<string, unknown>).verification_state;
+  return typeof verificationState === "string" ? verificationState : null;
+}
+
+function replayedFromResponse(response: PartnerActionResponse): boolean {
+  const result = response.result;
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return false;
+  }
+  return (result as Record<string, unknown>).replayed === true;
+}
+
+function classifyCatalogSpeedPosture(
+  dashboardSpeed: PartnerCatalogResponse["current_truth"]["dashboard_speed"] | null | undefined,
+): AttnAgentCatalogSpeedPosture {
+  if (!dashboardSpeed) return "unproven";
+  if (
+    dashboardSpeed.borrower_measured_receipt_count > 0 &&
+    dashboardSpeed.lender_measured_receipt_count > 0
+  ) {
+    return "measured";
+  }
+  if (
+    dashboardSpeed.borrower_measured_receipt_count > 0 ||
+    dashboardSpeed.lender_measured_receipt_count > 0
+  ) {
+    return "partial";
+  }
+  return "unproven";
+}
+
+function classifyCatalogHostedStatePosture(
+  closureHostedState: PartnerCatalogResponse["current_truth"]["closure_hosted_state"] | null | undefined,
+): AttnAgentCatalogHostedStatePosture {
+  if (!closureHostedState) return "unknown";
+  if (
+    closureHostedState.durable_state_backend === "shared_system_kv" &&
+    closureHostedState.runtime_fallback_state === "fail_closed"
+  ) {
+    return "shared_kv_fail_closed";
+  }
+  if (
+    closureHostedState.durable_state_backend === "filesystem_json" &&
+    closureHostedState.runtime_fallback_state === "filesystem_active"
+  ) {
+    return "filesystem_active";
+  }
+  return "unknown";
+}
+
+function mergeDefaults<T extends DefaultableInput | Partial<DefaultableInput>>(
+  defaults: AttnAgentDefaults,
+  input: T,
+): T & DefaultableInput {
+  return {
+    ...input,
+    cluster: input.cluster ?? defaults.cluster,
+    preset_id: input.preset_id ?? defaults.preset_id,
+    creator_ingress_mode: input.creator_ingress_mode ?? defaults.creator_ingress_mode,
+    control_profile_id: input.control_profile_id ?? defaults.control_profile_id,
+  } as T & DefaultableInput;
 }
 
 export function createAttnClient(options: AttnClientOptions) {
@@ -230,4 +418,451 @@ export function createAttnClient(options: AttnClientOptions) {
     evm: createChainAdapter("evm"),
     ...defaultAdapter,
   };
+}
+
+type ActionInput = Omit<PartnerActionContextRequest, "chain">;
+type DefaultableInput = Pick<
+  ActionInput,
+  "cluster" | "preset_id" | "creator_ingress_mode" | "control_profile_id"
+>;
+type CapabilitiesInput = Partial<DefaultableInput>;
+type CatalogInput = PartnerCatalogRequest;
+
+export function classifyPartnerActionOutcome(args: {
+  action: PartnerActionName;
+  response: PartnerActionResponse;
+  attemptCount?: number;
+  maxAttempts?: number;
+}): AttnAgentDecision {
+  const attemptCount = Math.max(1, args.attemptCount ?? 1);
+  const maxAttempts = Math.max(1, args.maxAttempts ?? 2);
+  const blockers = asStringArray(args.response.blockers);
+  const nextActions = asStringArray(args.response.next_actions);
+  const executionMode = executionModeFromResponse(args.response);
+  const verificationState = verificationStateFromResponse(args.response);
+  const replayed = replayedFromResponse(args.response);
+  const explicitlyBlocked =
+    args.response.ok !== true ||
+    args.response.state === "blocked" ||
+    args.response.agent_tool_mode === "blocked";
+  const verificationSatisfied =
+    verificationState === "evidence_verified" ||
+    verificationState === "release_verified" ||
+    replayed;
+
+  let status: AttnAgentDecisionStatus = "ready";
+  if (explicitlyBlocked) {
+    status = attemptCount >= maxAttempts ? "escalate" : "blocked";
+  } else if (verificationSatisfied) {
+    status = "ready";
+  } else if (executionMode === "manual_client_signature_required") {
+    status = "await_human_signature";
+  }
+
+  return {
+    status,
+    must_stop: status !== "ready",
+    requires_human_signature: status === "await_human_signature",
+    should_escalate: status === "escalate",
+    attempt_count: attemptCount,
+    max_attempts: maxAttempts,
+    blockers,
+    next_actions: nextActions,
+    agent_lane_state: args.response.agent_lane_state,
+    proof_state: args.response.proof_state,
+    public_claim_state: args.response.public_claim_state,
+  };
+}
+
+export function summarizeCapabilities(
+  response: PartnerCapabilitiesResponse,
+): AttnAgentCapabilitiesOutcome {
+  const ready_actions: PartnerActionName[] = [];
+  const blocked_actions: PartnerActionName[] = [];
+  const preview_actions: PartnerActionName[] = [];
+  const context_required_actions: PartnerActionName[] = [];
+
+  for (const [action, capability] of Object.entries(response.actions) as Array<
+    [PartnerActionName, PartnerCapabilitiesResponse["actions"][PartnerActionName]]
+  >) {
+    if (capability.state === "ready") ready_actions.push(action);
+    if (capability.state === "blocked") blocked_actions.push(action);
+    if (capability.state === "preview_only") preview_actions.push(action);
+    if (capability.state === "context_required") context_required_actions.push(action);
+  }
+
+  return {
+    response,
+    ready_actions,
+    blocked_actions,
+    preview_actions,
+    context_required_actions,
+  };
+}
+
+export function summarizeCatalog(response: PartnerCatalogResponse): AttnAgentCatalogOutcome {
+  const closureHostedState = response.current_truth.closure_hosted_state ?? null;
+  const firstPrivateLaneSemantics =
+    response.current_truth.first_private_lane_semantics ?? null;
+  const pilotPathTruth = response.current_truth.pilot_path_truth ?? null;
+  const privateParityReceipt = response.current_truth.private_parity_receipt ?? null;
+  const dashboardSpeed = response.current_truth.dashboard_speed ?? null;
+  const speedBlockers = Array.from(
+    new Set(
+      [
+        ...(dashboardSpeed?.borrower_blockers ?? []),
+        ...(dashboardSpeed?.lender_blockers ?? []),
+      ].filter((value) => value.trim().length > 0),
+    ),
+  );
+
+  return {
+    response,
+    live_claim_scope: response.current_truth.live_claim_scope,
+    real_credit_blockers: asStringArray(response.current_truth.real_credit_blockers),
+    closure_hosted_state: closureHostedState,
+    first_private_lane_semantics: firstPrivateLaneSemantics,
+    pilot_path_truth: pilotPathTruth,
+    private_parity_receipt: privateParityReceipt,
+    hosted_state_posture: classifyCatalogHostedStatePosture(closureHostedState),
+    dashboard_speed: dashboardSpeed,
+    speed_posture: classifyCatalogSpeedPosture(dashboardSpeed),
+    speed_blockers: speedBlockers,
+  };
+}
+
+export function recommendCatalogAction(
+  summary: AttnAgentCatalogOutcome,
+): AttnAgentCatalogRecommendationOutcome {
+  const recommendationReasons = Array.from(
+    new Set([...summary.real_credit_blockers, ...summary.speed_blockers]),
+  );
+
+  if (summary.live_claim_scope === "none") {
+    recommendationReasons.push("live_claim_scope_none");
+  } else if (summary.live_claim_scope === "callable_fallback_only") {
+    recommendationReasons.push("live_claim_scope_callable_fallback_only");
+  }
+
+  if (summary.speed_posture !== "measured") {
+    recommendationReasons.push(`speed_posture_${summary.speed_posture}`);
+  }
+
+  if (summary.hosted_state_posture !== "shared_kv_fail_closed") {
+    recommendationReasons.push(
+      `hosted_state_posture_${summary.hosted_state_posture}`,
+    );
+  }
+
+  let recommendation: AttnAgentCatalogRecommendation = "proceed_read_only";
+  if (summary.live_claim_scope === "none" || summary.real_credit_blockers.length > 0) {
+    recommendation = "escalate_or_block";
+  } else if (
+    summary.live_claim_scope === "callable_fallback_only" ||
+    summary.speed_posture !== "measured" ||
+    summary.speed_blockers.length > 0 ||
+    summary.hosted_state_posture !== "shared_kv_fail_closed"
+  ) {
+    recommendation = "proceed_with_caution";
+  }
+
+  return {
+    ...summary,
+    recommendation,
+    recommendation_reasons: recommendationReasons,
+  };
+}
+
+export function createAttnAgentLoanTools(options: AttnAgentLoanToolsOptions) {
+  const adapter = options.client.forChain(options.chain);
+  const maxAttempts = Math.max(1, options.maxAttemptsPerAction ?? 2);
+
+  async function runAction(
+    action: PartnerActionName,
+    execute: () => Promise<PartnerActionResponse>,
+    attemptCount?: number,
+  ): Promise<AttnAgentActionOutcome> {
+    const response = await execute();
+    return {
+      action,
+      response,
+      decision: classifyPartnerActionOutcome({
+        action,
+        response,
+        attemptCount,
+        maxAttempts,
+      }),
+    };
+  }
+
+  return {
+    actionOrder: [...ATTN_AGENT_BORROWER_ACTION_ORDER],
+    catalog(input?: CatalogInput): Promise<PartnerCatalogResponse> {
+      return options.client.catalog({
+        ...mergeDefaults(options.defaults, input ?? {}),
+        chain: options.chain,
+      });
+    },
+    async summarizeCatalog(input?: CatalogInput) {
+      return summarizeCatalog(
+        await options.client.catalog({
+          ...mergeDefaults(options.defaults, input ?? {}),
+          chain: options.chain,
+        }),
+      );
+    },
+    async recommendCatalogAction(input?: CatalogInput) {
+      return recommendCatalogAction(await this.summarizeCatalog(input));
+    },
+    capabilities(input?: CapabilitiesInput) {
+      return adapter.capabilities(mergeDefaults(options.defaults, input ?? {}));
+    },
+    async summarizeCapabilities(input?: CapabilitiesInput) {
+      return summarizeCapabilities(
+        await adapter.capabilities(mergeDefaults(options.defaults, input ?? {})),
+      );
+    },
+    checkCredit(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "session_id"
+        | "session_token"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      >,
+      attemptCount?: number,
+    ) {
+      return runAction(
+        "check_credit",
+        () => adapter.checkCredit(mergeDefaults(options.defaults, input)),
+        attemptCount,
+      );
+    },
+    getAttnAlignmentOffer(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "session_id"
+        | "session_token"
+        | "mint"
+        | "borrower_wallet"
+        | "facility_pubkey"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      >,
+      attemptCount?: number,
+    ) {
+      return runAction(
+        "get_attn_alignment_offer",
+        () => adapter.getAttnAlignmentOffer(mergeDefaults(options.defaults, input)),
+        attemptCount,
+      );
+    },
+    acceptAttnAlignmentOffer(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "session_id"
+        | "session_token"
+        | "mint"
+        | "borrower_wallet"
+        | "facility_pubkey"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      >,
+      attemptCount?: number,
+    ) {
+      return runAction(
+        "accept_attn_alignment_offer",
+        () =>
+          adapter.acceptAttnAlignmentOffer(mergeDefaults(options.defaults, input)),
+        attemptCount,
+      );
+    },
+    startOnboarding(
+      input: Omit<
+        ActionInput,
+        | "session_id"
+        | "session_token"
+        | "mint"
+        | "borrower_wallet"
+        | "facility_pubkey"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      > & { payload: Record<string, unknown> },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction(
+        "start_onboarding",
+        () => adapter.startOnboarding(request),
+        attemptCount,
+      );
+    },
+    getStageStatus(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "mint"
+        | "borrower_wallet"
+        | "facility_pubkey"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      > & { session_id: string },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction(
+        "get_stage_status",
+        () => adapter.getStageStatus(request),
+        attemptCount,
+      );
+    },
+    executeHandoff(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "mint"
+        | "borrower_wallet"
+        | "facility_pubkey"
+        | "target_wallet"
+        | "tx_signatures"
+        | "mints"
+      > & { session_id: string },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction(
+        "execute_handoff",
+        () => adapter.executeHandoff(request),
+        attemptCount,
+      );
+    },
+    openCreditLine(
+      input: Omit<
+        ActionInput,
+        "payload" | "mint" | "borrower_wallet" | "target_wallet" | "mints"
+      > & { facility_pubkey: string; tx_signatures?: string[] },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction(
+        "open_credit_line",
+        () => adapter.openCreditLine(request),
+        attemptCount,
+      );
+    },
+    prepareCreditLine(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "mint"
+        | "borrower_wallet"
+        | "target_wallet"
+        | "mints"
+        | "tx_signatures"
+      > & { facility_pubkey: string },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, {
+        ...input,
+        tx_signatures: [],
+      });
+      return runAction(
+        "open_credit_line",
+        () => adapter.openCreditLine(request),
+        attemptCount,
+      );
+    },
+    verifyCreditLine(
+      input: Omit<
+        ActionInput,
+        "payload" | "mint" | "borrower_wallet" | "target_wallet" | "mints"
+      > & { facility_pubkey: string; tx_signatures: string[] },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction(
+        "open_credit_line",
+        () => adapter.openCreditLine(request),
+        attemptCount,
+      );
+    },
+    repay(
+      input: Omit<
+        ActionInput,
+        "payload" | "mint" | "borrower_wallet" | "target_wallet" | "mints"
+      > & { facility_pubkey: string; tx_signatures?: string[] },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction("repay", () => adapter.repay(request), attemptCount);
+    },
+    prepareRepay(
+      input: Omit<
+        ActionInput,
+        | "payload"
+        | "mint"
+        | "borrower_wallet"
+        | "target_wallet"
+        | "mints"
+        | "tx_signatures"
+      > & { facility_pubkey: string },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, {
+        ...input,
+        tx_signatures: [],
+      });
+      return runAction("repay", () => adapter.repay(request), attemptCount);
+    },
+    verifyRepay(
+      input: Omit<
+        ActionInput,
+        "payload" | "mint" | "borrower_wallet" | "target_wallet" | "mints"
+      > & { facility_pubkey: string; tx_signatures: string[] },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction("repay", () => adapter.repay(request), attemptCount);
+    },
+    offboard(
+      input: Omit<ActionInput, "payload" | "mint" | "borrower_wallet"> & {
+        session_id: string;
+        facility_pubkey: string;
+        target_wallet?: string;
+        tx_signatures?: string[];
+        mints?: string[];
+      },
+      attemptCount?: number,
+    ) {
+      const request = mergeDefaults(options.defaults, input);
+      return runAction("offboard", () => adapter.offboard(request), attemptCount);
+    },
+  };
+}
+
+export const createAttnAgentTools = createAttnAgentLoanTools;
+
+export function createPumpAgentBorrowerTools(
+  options: AttnPumpAgentBorrowerToolsOptions,
+) {
+  return createAttnAgentLoanTools({
+    client: options.client,
+    chain: "solana",
+    defaults: {
+      ...ATTN_PUMP_AGENT_BORROWER_DEFAULTS,
+      cluster: options.cluster ?? ATTN_PUMP_AGENT_BORROWER_DEFAULTS.cluster,
+      control_profile_id:
+        options.control_profile_id ??
+        ATTN_PUMP_AGENT_BORROWER_DEFAULTS.control_profile_id,
+    },
+    maxAttemptsPerAction: options.maxAttemptsPerAction,
+  });
 }
