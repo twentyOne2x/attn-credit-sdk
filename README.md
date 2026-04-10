@@ -137,6 +137,27 @@ They are the public way to:
 
 They are not a claim that the broader borrower UI, public market, or partner-managed own-wallet runtime is the same thing.
 
+If you have the borrower-controlled onboarding payload for the hosted legacy Swig lane, you can also drive the next hosted session step through the same public CLI:
+
+```bash
+pnpm run harness:attn-live-action:human -- \
+  --action start_onboarding \
+  --payload-file ./examples/attn-live/swig-start-onboarding.payload.example.json
+```
+
+That payload file is a scaffold, not a replayable live blob. Replace the placeholder borrower wallet, auth proof, and verifier evidence with real values from the borrower session.
+
+Fresh hosted proof from April 10, 2026:
+
+1. `start_onboarding` can create a hosted session through the public SDK.
+2. `execute_handoff` truthfully stops at `route-lock transactions must be confirmed on-chain` until route-lock confirmation is real.
+3. `open_credit_line` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release exists.
+
+Reference files:
+
+- [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
+- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+
 Fresh external repo rule:
 
 1. do not start by re-declaring the partner-managed contract in local files,

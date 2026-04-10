@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -511,6 +511,109 @@ test("partner harness CLI can hit live capabilities and action commands through 
     assert.ok(actionCall);
     assert.equal(actionCall!.body?.action, "check_credit");
     assert.equal(actionCall!.body?.mint, "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu");
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("partner harness CLI forwards a payload-file for hosted start_onboarding and retains the blocked session truth", async () => {
+  const calls: Array<{ url: string; body?: Record<string, unknown> }> = [];
+  const server = http.createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      const body =
+        chunks.length > 0
+          ? (JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>)
+          : undefined;
+      calls.push({ url: request.url ?? "", body });
+
+      if (request.url === "/api/partner/credit/action") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            ok: true,
+            receipt_type: "partner_action_receipt",
+            request_id: "partner_action_test",
+            action: "start_onboarding",
+            state: "blocked",
+            proof_state: "code_shipped",
+            public_claim_state: "public_doc_ready",
+            sdk_stage: "session",
+            agent_tool_mode: "blocked",
+            agent_lane_state: "blocked",
+            blockers: ["route-lock transactions must be confirmed on-chain"],
+            next_actions: [
+              "Qualification can proceed, but operator treasury release is still required before live funding.",
+              "Confirm route-lock signatures on-chain",
+            ],
+            result: {
+              session_id: "swig_example_session",
+              session_token: "swig_example_token",
+              current_stage: "handoff_lock",
+              backend_gate_pass: false,
+            },
+          }),
+        );
+        return;
+      }
+
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ ok: false }));
+    });
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind local test server");
+  }
+
+  try {
+    const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-live-start-onboarding-"));
+    const payload = {
+      backend: "swig",
+      create_swig_wallets: {
+        borrower_pubkey: "Borrower11111111111111111111111111111111111",
+      },
+      auth: {
+        wallet: "Borrower11111111111111111111111111111111111",
+        issued_at: "2026-04-10T00:00:00.000Z",
+        signature: "example_signature",
+      },
+    };
+    const payloadPath = path.join(outDir, "payload.json");
+    await writeFile(payloadPath, JSON.stringify(payload, null, 2), "utf8");
+
+    const action = await runCli([
+      "attn-live-action",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+      "--action",
+      "start_onboarding",
+      "--payload-file",
+      payloadPath,
+    ]);
+
+    assert.equal(action.summary.ok, true);
+    assert.equal(action.summary.action, "start_onboarding");
+    assert.equal(action.summary.state, "blocked");
+    assert.equal(action.summary.decision_status, "blocked");
+    assert.equal(action.summary.agent_lane_state, "blocked");
+    assert.ok(action.summary.blockers.includes("route-lock transactions must be confirmed on-chain"));
+    assert.ok(action.summary.artifact_paths.payload);
+
+    const actionCall = calls.find((call) => call.url === "/api/partner/credit/action");
+    assert.ok(actionCall);
+    assert.equal(actionCall!.body?.action, "start_onboarding");
+    assert.deepEqual(actionCall!.body?.payload, payload);
+
+    const payloadArtifact = await readFile(action.summary.artifact_paths.payload, "utf8");
+    assert.deepEqual(JSON.parse(payloadArtifact), payload);
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

@@ -1,0 +1,123 @@
+{
+  "backend": "swig",
+  "create_swig_wallets": {
+    "pledged_swig_account_address": "<pledged swig account address>",
+    "pledged_swig_wallet_address": "<pledged swig wallet address>",
+    "dsra_swig_account_address": "<dsra swig account address>",
+    "dsra_swig_wallet_address": "<dsra swig wallet address>",
+    "borrower_pubkey": "<real borrower pubkey>",
+    "sweeper_pubkey": "<sweeper pubkey>",
+    "attn_config_pubkey": "<attn config pubkey>",
+    "dsra_uses_sub_account": false
+  },
+  "setup_rails": {
+    "selected_mint_count": 1,
+    "rails_plan_txs": 1,
+    "rails_sent_count": 1,
+    "rails_error_count": 0,
+    "active_allowlisted_program_count": 3,
+    "destination_count": 2,
+    "egress_execution_mode": "sweeper"
+  },
+  "handoff_lock": {
+    "lock_tx_signatures": [
+      "<confirmed route-lock transaction signature>"
+    ],
+    "confirmed_lock_signatures_count": 1,
+    "borrower_manage_removed": true,
+    "attn_manage_present": true
+  },
+  "verify_posture": {
+    "verifier_pass": true,
+    "verifier_run_id": "<server verifier run id>",
+    "verifier_failures_count": 0,
+    "verifier_wallet_match": true,
+    "verifier_input": {
+      "cluster": "mainnet-beta",
+      "posture": "ACTIVE",
+      "wallets": {
+        "pledged": {
+          "walletName": "pledged",
+          "swigAccountAddress": "<pledged swig account address>",
+          "swigWalletAddress": "<pledged swig wallet address>",
+          "derivedSwigWalletAddress": "<derived pledged swig wallet address>",
+          "isSubAccount": false,
+          "roles": [
+            {
+              "roleId": "borrower-role",
+              "roleName": "Borrower",
+              "authorities": [
+                "<borrower authority pubkey>"
+              ],
+              "actions": []
+            },
+            {
+              "roleId": "sweeper-role",
+              "roleName": "Sweeper",
+              "authorities": [
+                "<sweeper authority pubkey>"
+              ],
+              "actions": [
+                {
+                  "kind": "solDestinationLimit",
+                  "destination": "<allowed destination>"
+                },
+                {
+                  "kind": "program",
+                  "programId": "<allowed program id>"
+                }
+              ]
+            },
+            {
+              "roleId": "attn-role",
+              "roleName": "ATTNConfig",
+              "authorities": [
+                "<attn config authority pubkey>"
+              ],
+              "actions": [
+                {
+                  "kind": "manageAuthority"
+                }
+              ]
+            }
+          ]
+        },
+        "dsra": {
+          "walletName": "dsra",
+          "swigAccountAddress": "<dsra swig account address>",
+          "swigWalletAddress": "<dsra swig wallet address>",
+          "derivedSwigWalletAddress": "<derived dsra swig wallet address>",
+          "isSubAccount": false,
+          "roles": []
+        }
+      },
+      "expected": {
+        "borrowerPubkey": "<borrower authority pubkey>",
+        "sweeperPubkey": "<sweeper authority pubkey>",
+        "attnConfigPubkey": "<attn config authority pubkey>",
+        "sweeperAllowedPrograms": [
+          "<allowed program id>"
+        ],
+        "sweeperDestinationsByWallet": {
+          "pledged": [
+            "<allowed pledged destination>"
+          ],
+          "dsra": [
+            "<allowed dsra destination>"
+          ]
+        },
+        "pledgedMints": [
+          "<mint>"
+        ]
+      }
+    }
+  },
+  "ready_for_active": {
+    "backend_gate_pass": true
+  },
+  "auth": {
+    "wallet": "<same real borrower pubkey>",
+    "issued_at": "<ISO-8601 timestamp>",
+    "signature": "<base64url ed25519 signature over buildSessionAuthMessage(...)>"
+  }
+}

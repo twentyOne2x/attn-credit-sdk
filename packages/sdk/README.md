@@ -553,4 +553,33 @@ pnpm run harness:attn-live-action:human -- \
 
 Those commands let a public caller gauge or execute bounded borrower actions against the currently hosted attn callable fallback contract without needing local-only wrappers.
 
+If the caller already has the borrower-controlled onboarding payload for the hosted legacy Swig lane, the same public SDK surface can drive the next hosted session step:
+
+```ts
+const start = await tools.startOnboarding({
+  payload: swigPayload,
+});
+
+console.log(start.decision.status);
+console.log(start.response.result?.session_id);
+
+const handoff = await tools.executeHandoff({
+  session_id: start.response.result?.session_id,
+  session_token: start.response.result?.session_token,
+});
+
+console.log(handoff.response.blockers);
+```
+
+Fresh hosted proof from April 10, 2026:
+
+1. `startOnboarding(...)` can create a hosted session through the public SDK.
+2. `executeHandoff(...)` truthfully stops at `route-lock transactions must be confirmed on-chain` until that lock is real.
+3. `openCreditLine(...)` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release exists.
+
+For a payload scaffold and CLI example, see:
+
+- [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
+- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+
 Canonical cross-chain truth and operator sequencing live in [PARTNER_CREDIT_CROSS_CHAIN.md](/Users/user/PycharmProjects/attn-credit/docs/runbooks/PARTNER_CREDIT_CROSS_CHAIN.md).

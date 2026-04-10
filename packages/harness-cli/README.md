@@ -133,6 +133,27 @@ Use those commands when you want to:
 
 Those commands describe the current hosted callable fallback only. They do not prove the partner-managed own-wallet lane, the broader public borrower market, or a canonical borrower UI surface.
 
+If you have a hosted legacy Swig onboarding payload, the same public CLI can drive the hosted session flow:
+
+```bash
+pnpm run harness:attn-live-action:human -- \
+  --action start_onboarding \
+  --payload-file ./examples/attn-live/swig-start-onboarding.payload.example.json
+```
+
+That file is a scaffold. Replace the borrower wallet, session auth proof, and verifier evidence with real values.
+
+Fresh hosted proof from April 10, 2026:
+
+1. `start_onboarding` can create a hosted session.
+2. `execute_handoff` then truthfully stops at `route-lock transactions must be confirmed on-chain` until the lock is actually confirmed.
+3. `open_credit_line` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release is recorded.
+
+See:
+
+- [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
+- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+
 ## Fresh external repo acceptance bar
 
 If a partner or its AI creates a new repo around this harness, the honest minimum bar is:
