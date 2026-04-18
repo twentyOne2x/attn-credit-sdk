@@ -4,6 +4,8 @@ Use this checklist before the first retained run.
 
 The goal is simple: gather one honest bundle of current partner data so `partner-managed-validate` and `partner-managed-pack-from-files` can tell the truth about the lane without guessing.
 
+The demo fixtures under `examples/clawpump/` and `examples/partner-managed/` are for SDK smoke tests only. They do not count as a real partner bundle for ClawPump closure or `CP-07`.
+
 ## Minimum pack-from-files inputs
 
 These two files are the minimum needed to run the file-backed pack flow:
