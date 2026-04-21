@@ -33,7 +33,7 @@ test("sdk exposes canonical defaults and receipt mapping", () => {
   assert.deepEqual(SDK_CLIENT_DEFAULTS, {
     chain: "solana",
     cluster: "mainnet-beta",
-    creator_ingress_mode: "direct-to-swig",
+    creator_ingress_mode: "managed_destination",
     control_profile_id: "partner_managed_light",
   });
   assert.equal(partnerReceiptTypeForRoute("capabilities"), PARTNER_CAPABILITIES_RECEIPT_TYPE);
@@ -113,7 +113,7 @@ test("sdk builds a partner-managed evidence pack and drift signal without implyi
   const policy = createPartnerManagedWalletPolicyTemplate({
     wallet_operator_model: "quorum_or_policy_engine",
     private_treasury_financing: "manual_operator_release",
-    repayment_enforcement_class: "swig_equivalent_partner_control",
+    repayment_enforcement_class: "full_control_parity",
     stateByRequirementId: allVerifiedStates,
   });
 
@@ -205,7 +205,7 @@ test("sdk builds a partner-managed evidence pack and drift signal without implyi
   });
 
   assert.equal(pack.assessment.stage, "stage_4_full_partner_managed_standard");
-  assert.equal(pack.assessment.claim_level, "swig_equivalent_partner_control_compatible");
+  assert.equal(pack.assessment.claim_level, "full_control_parity_compatible");
   assert.equal(pack.required_partner_inputs.length, 0);
   assert.equal(pack.receipts.length, 2);
   assert.equal(pack.assessment.residual_risk_codes.length, 0);
@@ -320,7 +320,7 @@ test("sdk client posts partner capabilities to the expected route", async () => 
   assert.equal(calls[0]!.url, "http://localhost:3000/api/partner/credit/capabilities");
   assert.equal(calls[0]!.body.chain, SDK_CLIENT_DEFAULTS.chain);
   assert.equal(calls[0]!.body.cluster, SDK_CLIENT_DEFAULTS.cluster);
-  assert.equal(calls[0]!.body.creator_ingress_mode, SDK_CLIENT_DEFAULTS.creator_ingress_mode);
+  assert.equal(calls[0]!.body.creator_ingress_mode, "direct-to-swig");
   assert.equal(calls[0]!.body.control_profile_id, SDK_CLIENT_DEFAULTS.control_profile_id);
 });
 
@@ -351,7 +351,7 @@ test("sdk client preserves internal-only Safe capability truth on the EVM adapte
 
   const response = await client.evm.capabilities({
     preset_id: "evm_borrower_privy_safe",
-    creator_ingress_mode: "via-borrower",
+    creator_ingress_mode: "session_handoff",
     control_profile_id: "partner_managed_firm",
   });
 
@@ -419,7 +419,7 @@ test("sdk client fetches the free partner catalog through GET", async () => {
 
   const response = await client.catalog({
     preset_id: "solana_borrower_legacy_swig",
-    creator_ingress_mode: "via-borrower",
+    creator_ingress_mode: "session_handoff",
     control_profile_id: "attn_default",
   });
 
@@ -499,7 +499,7 @@ test("sdk exposes a public catalog summary and recommendation helper", () => {
       chain: "solana",
       cluster: "mainnet-beta",
       preset_id: "solana_borrower_legacy_swig",
-      creator_ingress_mode: "via-borrower",
+      creator_ingress_mode: "session_handoff",
       control_profile_id: "attn_default",
       capital_source: "treasury_wallet",
       funding_mode: "manual_operator_release",
@@ -571,7 +571,7 @@ test("sdk exposes a public catalog summary and recommendation helper", () => {
   assert.ok(recommendation.recommendation_reasons.includes("speed_posture_partial"));
 });
 
-test("sdk exposes public pump borrower tools for the hosted callable fallback", async () => {
+test("sdk exposes public pump borrower tools for the managed-destination hosted comparison surface", async () => {
   const calls: Array<{ url: string; method: string; body?: Record<string, unknown> }> = [];
   const client = createAttnClient({
     baseUrl: "http://localhost:3000",
@@ -595,39 +595,41 @@ test("sdk exposes public pump borrower tools for the hosted callable fallback", 
               chain: "solana",
               cluster: "mainnet-beta",
               preset_id: "solana_borrower_legacy_swig",
-              creator_ingress_mode: "via-borrower",
+              creator_ingress_mode: "direct-to-swig",
               control_profile_id: "attn_default",
-              capital_source: "treasury_wallet",
-              funding_mode: "manual_operator_release",
-              production_truth: "executable_private_pilot",
-              lane_contract_state: "treasury_private_pilot",
+              capital_source: "unresolved",
+              funding_mode: "not_applicable",
+              production_truth: "proof_only",
+              lane_contract_state: "proof_backed_managed_destination",
               revenue_source: "pumpfun_creator_fees",
               revenue_unit: "SOL",
               repayment_source: "swig_controlled_creator_fee_capture",
               primary_debt_unit: "SOL",
-              current_callable_debt_unit: "SOL",
+              current_callable_debt_unit: "unknown",
               primary_lane_contract: "pump_creator_fee_solana_first",
-              current_callable_lane_contract: "treasury_private_pilot_sol",
-              coexistence_state: "treasury_sol_fallback_primary_pending",
-              proof_state: "current",
+              current_callable_lane_contract: "managed_destination_runtime",
+              coexistence_state: "managed_destination_primary_with_legacy_session_handoff_compat",
+              proof_state: "proof_backed",
               public_claim_state: "current",
-              blockers: [],
-              blocker_codes: [],
-              next_actions: [],
-              notes: [],
+              blockers: ["fresh_managed_destination_live_credit_receipt_missing"],
+              blocker_codes: ["fresh_managed_destination_live_credit_receipt_missing"],
+              next_actions: [
+                "Start onboarding on the managed-destination lane and keep lifecycle actions bounded to the returned request templates.",
+              ],
+              notes: ["The stable hosted reference path is managed_destination."],
             },
             current_truth: {
               can_agent_discover_lane_now: true,
               can_agent_start_onboarding_now: true,
               can_agent_complete_primary_lane_now: false,
-              can_agent_complete_real_credit_now: true,
+              can_agent_complete_real_credit_now: false,
               can_agent_complete_public_market_now: false,
               primary_lane_readiness_state: "blocked_non_sol_dependency",
               primary_lane_blockers: ["raw_protocol_debt_unit_not_sol_only"],
               public_market_readiness_state: "blocked_primary_lane",
               public_market_blockers: ["primary_lane_not_live"],
-              real_credit_blockers: [],
-              live_claim_scope: "callable_fallback_only",
+              real_credit_blockers: ["fresh_managed_destination_live_credit_receipt_missing"],
+              live_claim_scope: "none",
               proof_contract_summary: null,
               dashboard_speed: {
                 supplied: true,
@@ -637,7 +639,7 @@ test("sdk exposes public pump borrower tools for the hosted callable fallback", 
                 lender_blockers: [],
               },
               mcp_transport_state: "wrapper_ready",
-              agent_operability_state: "funded_live_ready",
+              agent_operability_state: "endpoint_operable",
               recommended_package: "@attn-credit/sdk",
               recommended_wrapper: "createPumpAgentBorrowerTools",
               skill_surface_path: "/skill.md",
@@ -758,12 +760,12 @@ test("sdk exposes public pump borrower tools for the hosted callable fallback", 
 
   assert.deepEqual(ATTN_PUMP_AGENT_BORROWER_DEFAULTS, {
     cluster: "mainnet-beta",
-    preset_id: "solana_borrower_legacy_swig",
-    creator_ingress_mode: "via-borrower",
+    preset_id: "solana_borrower_attn_hosted",
+    creator_ingress_mode: "managed_destination",
     control_profile_id: "attn_default",
   });
-  assert.equal(catalogSummary.live_claim_scope, "callable_fallback_only");
-  assert.equal(catalogRecommendation.recommendation, "proceed_with_caution");
+  assert.equal(catalogSummary.live_claim_scope, "none");
+  assert.equal(catalogRecommendation.recommendation, "escalate_or_block");
   assert.ok(capabilitySummary.ready_actions.includes("check_credit"));
   assert.ok(capabilitySummary.ready_actions.includes("start_onboarding"));
   assert.equal(checkCredit.decision.status, "ready");
@@ -777,7 +779,7 @@ test("sdk exposes public pump borrower tools for the hosted callable fallback", 
   assert.ok(catalogCall);
   assert.ok(catalogCall!.url.includes("preset_id=solana_borrower_legacy_swig"));
   assert.ok(capabilitiesCall);
-  assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "via-borrower");
+  assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "direct-to-swig");
   assert.equal(capabilitiesCall!.body?.control_profile_id, "attn_default");
   assert.ok(actionCall);
   assert.equal(actionCall!.body?.action, "check_credit");
@@ -840,7 +842,7 @@ test("sdk exposes a first-class EIP-8183 namespace on the EVM adapter", () => {
   const metadata = client.evm.eip8183.createMetadata({
     cluster: "mainnet-beta",
     preset_id: "evm_borrower_privy_only",
-    creator_ingress_mode: "direct-to-swig",
+    creator_ingress_mode: "managed_destination",
     control_profile_id: "partner_managed_light",
     role_mode: "hook_plus_router",
     repayment_capture_mode: "router_controlled",
@@ -919,7 +921,7 @@ test("sdk client preserves internal-only Safe action truth on startOnboarding", 
 
   const response = await client.evm.startOnboarding({
     preset_id: "evm_borrower_privy_safe",
-    creator_ingress_mode: "via-borrower",
+    creator_ingress_mode: "session_handoff",
     control_profile_id: "partner_managed_firm",
     payload: {
       preset_id: "evm_borrower_privy_safe",
@@ -1033,7 +1035,7 @@ test("sdk exposes EIP-8183 metadata and receipt helpers", () => {
   const envelope = buildAttnEip8183HookEnvelope({
     cluster: "mainnet-beta",
     preset_id: "evm_borrower_privy_only",
-    creator_ingress_mode: "direct-to-swig",
+    creator_ingress_mode: "managed_destination",
     control_profile_id: "partner_managed_light",
     request_id: "partner_test",
     role_mode: "hook_plus_router",

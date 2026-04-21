@@ -38,6 +38,8 @@ This README should answer:
 
 This package does not, by itself, fund or execute the live credit line. It standardizes the typed contract around the lane so the live integration can be qualified honestly.
 
+Current ClawPump proof boundary: on April 20, 2026, a non-demo mainnet-beta ClawPump bundle was retained through the public SDK harness. The retained stage was `stage_1_platform_counterparty_mvp` and the strongest supportable claim level was `compatibility_only`. The bundle proved SDK packaging compatibility for real ClawPump readbacks, not positive revenue flow, repayment-target invariants, financing readiness, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+
 If you want to execute this contract instead of reading only the types, use the retained-run harness in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md).
 
 This contract is not limited to creator-fee lanes. It can describe partner-managed revenue sources such as creator fees, service fees, usage-metered x402-style flows, subscriptions, or another custom cashflow model, as long as the payout path and debt-open routing can be made explicit.
@@ -154,6 +156,8 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --revenue-events ./examples/partner-managed/revenue-events.json \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
+
+For a real partner run, pass explicit retained metadata such as `--partner-id clawpump --display-name ClawPump`. Otherwise the descriptor intentionally stays on the generic demo defaults while the receipts still reflect the ClawPump-family source data.
 
 Only after that validation pass and baseline retained run should a separate integration repo be created around the public SDK contract.
 
@@ -272,9 +276,9 @@ const evidencePack = createPartnerManagedEvidencePack({
 
 For one concrete backend-native mapping into this generic contract, use [`@attn-credit/clawpump`](../clawpump/README.md) and its bridge helpers in [`sdkBridge.ts`](../clawpump/src/sdkBridge.ts).
 
-If you want to package partner-provided clawpump exports or readbacks into retained SDK artifacts, start with the harness command in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md) instead of guessing a hosted attn tuple.
+If you want to package partner-provided clawpump exports or readbacks into retained SDK artifacts, start with the harness command in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md) instead of guessing internal attn host config.
 
-Quick start for the current hosted attn callable fallback:
+Quick start for optional attn-hosted reference checks:
 
 ```ts
 import { createAttnClient } from "@attn-credit/sdk";
@@ -285,21 +289,21 @@ const client = createAttnClient({
 
 const capabilities = await client.solana.capabilities({
   cluster: "mainnet-beta",
-  preset_id: "solana_borrower_legacy_swig",
-  creator_ingress_mode: "via-borrower",
-  control_profile_id: "attn_default",
+  preset_id: "<attn-hosted-preset>" as any,
+  creator_ingress_mode: "<attn-hosted-mode>" as any,
+  control_profile_id: "<attn-hosted-control-profile>" as any,
 });
 
 const quote = await client.solana.checkCredit({
   cluster: "mainnet-beta",
-  preset_id: "solana_borrower_legacy_swig",
-  creator_ingress_mode: "via-borrower",
-  control_profile_id: "attn_default",
+  preset_id: "<attn-hosted-preset>" as any,
+  creator_ingress_mode: "<attn-hosted-mode>" as any,
+  control_profile_id: "<attn-hosted-control-profile>" as any,
   mint: "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
 });
 ```
 
-That `createAttnClient(...)` example is about the current hosted attn callable fallback contract. It is not the same thing as a partner-managed clawpump wallet lane, and it should not be presented to a partner as if it were their start contract.
+That `createAttnClient(...)` example is about attn's own current hosted contract. It is not the same thing as a partner-managed clawpump wallet lane, and it should not be presented to a partner as if it were their start contract. The exact preset and ingress values in the snippet above are attn host config, not partner requirements.
 
 For partner-managed wallet infra, the canonical external contract now consists of:
 1. one policy summary
@@ -457,7 +461,7 @@ Client defaults are exported from the shared schema:
 import { SDK_CLIENT_DEFAULTS, partnerReceiptTypeForRoute } from "@attn-credit/sdk";
 
 console.log(SDK_CLIENT_DEFAULTS.chain); // solana
-console.log(SDK_CLIENT_DEFAULTS.creator_ingress_mode); // direct-to-swig
+console.log(SDK_CLIENT_DEFAULTS.creator_ingress_mode); // attn-hosted default
 console.log(partnerReceiptTypeForRoute("action")); // partner_action_receipt
 ```
 
@@ -469,7 +473,7 @@ The public client is now explicitly chain-aware without flattening the adapters 
 const evmClient = client.forChain("evm");
 const evmCapabilities = await evmClient.capabilities({
   preset_id: "evm_borrower_privy_only",
-  creator_ingress_mode: "direct-to-swig",
+  creator_ingress_mode: "<configured-ingress-mode>" as any,
   control_profile_id: "partner_managed_light",
 });
 ```
@@ -479,7 +483,7 @@ If you are integrating the Safe-backed EVM preset, keep its truth narrow:
 ```ts
 const safeCapabilities = await client.evm.capabilities({
   preset_id: "evm_borrower_privy_safe",
-  creator_ingress_mode: "direct-to-swig",
+  creator_ingress_mode: "<configured-ingress-mode>" as any,
   control_profile_id: "partner_managed_firm",
 });
 
@@ -487,7 +491,7 @@ console.log(safeCapabilities.proof_state); // code_shipped
 console.log(safeCapabilities.public_claim_state); // internal_only
 ```
 
-Do not treat `evm_borrower_privy_safe` as public-doc-ready or pair it with `creator_ingress_mode="via-borrower"`. The currently shipped Safe lane is an internal onboarding/activation surface, not a public self-serve lifecycle lane.
+Do not treat `evm_borrower_privy_safe` as public-doc-ready or pair it with an attn-internal hosted ingress value. The currently shipped Safe lane is an internal onboarding/activation surface, not a public self-serve lifecycle lane.
 
 For the ACP / `EIP-8183` lane, the SDK also exposes a first-class namespace on the EVM adapter:
 
@@ -495,7 +499,7 @@ For the ACP / `EIP-8183` lane, the SDK also exposes a first-class namespace on t
 const envelope = client.evm.eip8183.buildHookEnvelope({
   cluster: "mainnet-beta",
   preset_id: "evm_borrower_privy_only",
-  creator_ingress_mode: "direct-to-swig",
+  creator_ingress_mode: "<configured-ingress-mode>" as any,
   control_profile_id: "partner_managed_light",
   role_mode: "hook_plus_router",
   repayment_capture_mode: "router_controlled",
@@ -517,7 +521,7 @@ This is the first shipped SDK/runtime layer for the EVM `EIP-8183` lane. It does
 
 For the reference Solidity hook/router/evaluator package, use [`@attn-credit/eip8183`](/Users/user/PycharmProjects/attn-credit/packages/eip8183/README.md).
 
-For the current hosted treasury-funded Pump creator-fee fallback lane, `@attn-credit/sdk` itself now exports one compact borrower wrapper so callers do not need a separate private package just to consume the hosted catalog/action contract.
+For attn's current hosted Pump borrower reference path, `@attn-credit/sdk` itself now exports one compact borrower wrapper so callers do not need a separate private package just to consume the hosted catalog/action contract.
 
 When the caller needs one compact discovery/truth surface instead of reconstructing raw catalog fields, use `createPumpAgentBorrowerTools(...)` directly from `@attn-credit/sdk`:
 
@@ -551,13 +555,16 @@ pnpm run harness:attn-live-action:human -- \
   --mint Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu
 ```
 
-Those commands let a public caller gauge or execute bounded borrower actions against the currently hosted attn callable fallback contract without needing local-only wrappers.
+Those commands let a public caller gauge or execute bounded borrower actions against attn's current hosted contract without needing local-only wrappers.
 
-If the caller already has the borrower-controlled onboarding payload for the hosted legacy Swig lane, the same public SDK surface can drive the next hosted session step:
+If the caller specifically needs to inspect one older hosted path for attn-side debugging, pass the exact current attn-hosted parameters explicitly before sending the payload:
 
 ```ts
 const start = await tools.startOnboarding({
-  payload: swigPayload,
+  preset_id: "<attn-hosted-preset>" as any,
+  creator_ingress_mode: "<attn-hosted-mode>" as any,
+  control_profile_id: "<attn-hosted-control-profile>" as any,
+  payload: hostedPayload,
 });
 
 console.log(start.decision.status);
@@ -571,15 +578,15 @@ const handoff = await tools.executeHandoff({
 console.log(handoff.response.blockers);
 ```
 
-Fresh hosted proof from April 10, 2026:
+Fresh hosted proof from April 21, 2026:
 
-1. `startOnboarding(...)` can create a hosted session through the public SDK.
-2. `executeHandoff(...)` truthfully stops at `route-lock transactions must be confirmed on-chain` until that lock is real.
-3. `openCreditLine(...)` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release exists.
+1. `createPumpAgentBorrowerTools(...)` can read current attn-hosted route truth and execute bounded checks like `check_credit`.
+2. those hosted checks are still discovery-only for real credit and should not be treated as proof that a live funded lane is ready.
+3. one older hosted path is still blocked on external Pump creator-fee finalization and signer access.
 
 For a payload scaffold and CLI example, see:
 
 - [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
-- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+- `examples/attn-live/*.payload.example.json`
 
 Canonical cross-chain truth and operator sequencing live in [PARTNER_CREDIT_CROSS_CHAIN.md](/Users/user/PycharmProjects/attn-credit/docs/runbooks/PARTNER_CREDIT_CROSS_CHAIN.md).

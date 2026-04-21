@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   CONTROL_PROFILE_IDS,
-  CREATOR_INGRESS_MODES,
   PARTNER_AGENT_LANE_STATES,
   PARTNER_SDK_STAGES,
   SUPPORTED_CLUSTERS,
@@ -11,6 +10,7 @@ import {
   type PartnerAgentLaneState,
   type PartnerSdkStage,
   type SupportedCluster,
+  zCreatorIngressMode,
 } from "./schema";
 
 export const ATTN_EIP8183_ROLE_MODES = ["hook_only", "hook_plus_router", "hook_router_evaluator"] as const;
@@ -57,7 +57,7 @@ export const zAttnEip8183Metadata = z.object({
   chain: z.literal("evm").default("evm"),
   cluster: z.enum(SUPPORTED_CLUSTERS).default("mainnet-beta"),
   preset_id: z.string().trim().min(1),
-  creator_ingress_mode: z.enum(CREATOR_INGRESS_MODES),
+  creator_ingress_mode: zCreatorIngressMode,
   control_profile_id: z.enum(CONTROL_PROFILE_IDS),
   request_id: z.string().trim().min(1).optional(),
   sdk_stage: z.enum(PARTNER_SDK_STAGES).optional(),

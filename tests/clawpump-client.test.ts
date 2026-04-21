@@ -185,7 +185,7 @@ test("clawpump bridge builds a generic partner-managed descriptor and evidence p
   const policy = createPartnerManagedWalletPolicyTemplate({
     wallet_operator_model: "quorum_or_policy_engine",
     private_treasury_financing: "manual_operator_release",
-    repayment_enforcement_class: "swig_equivalent_partner_control",
+    repayment_enforcement_class: "full_control_parity",
     stateByRequirementId: allVerifiedStates,
   });
 
@@ -217,7 +217,7 @@ test("clawpump bridge builds a generic partner-managed descriptor and evidence p
   });
 
   assert.equal(pack.assessment.stage, "stage_4_full_partner_managed_standard");
-  assert.equal(pack.assessment.claim_level, "swig_equivalent_partner_control_compatible");
+  assert.equal(pack.assessment.claim_level, "full_control_parity_compatible");
   assert.equal(pack.readbacks.payout_topology?.payout_mode, "claim_and_stream");
   assert.equal(pack.readbacks.debt_open_routing?.repayment_target, ATTN_TARGET);
   assert.deepEqual(

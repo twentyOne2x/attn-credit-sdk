@@ -428,7 +428,7 @@ function attnSnapshotNote(scope: AttnSnapshotScope): string {
     case "catalog_only":
       return "The retained attn snapshot is catalog-only discovery truth. It does not imply partner-managed wallet parity.";
     case "current_callable_fallback_tuple":
-      return "The retained attn capabilities snapshot describes the current hosted callable fallback tuple, not proof that the partner-managed wallet lane already matches that runtime contract.";
+      return "The retained attn capabilities snapshot describes the current hosted comparison tuple, not proof that the partner-managed wallet lane already matches that runtime contract.";
   }
 }
 
@@ -1948,7 +1948,7 @@ async function runClawpumpPackFromFiles(options: CliOptions): Promise<RunSummary
     evidence_refs: Object.values(artifactPaths),
     notes: [
       "This run packages partner-provided ClawPump-style readbacks into the public SDK artifact contract.",
-      "This run does not prove live treasury funding, payout-control parity, or the hosted attn callable fallback as the same lane.",
+      "This run does not prove live treasury funding, payout-control parity, or the hosted attn comparison surface as the same lane.",
     ],
   });
 
@@ -2128,26 +2128,29 @@ async function runAttnLiveCatalog(options: CliOptions): Promise<LiveCatalogSumma
   );
 
   const result: LiveCatalogSummary = {
-    ok: catalog.ok === true,
+    ok: catalog.ok === true && Boolean(catalog.lane && catalog.current_truth),
     command: "attn-live-catalog",
     run_id: path.basename(logger.runDir),
     run_dir: logger.runDir,
     log_path: logger.logPath,
     base_url: options.attnBaseUrl ?? DEFAULT_ATTN_BASE_URL,
-    lane_id: catalog.lane.lane_id,
-    capital_source: catalog.lane.capital_source,
-    funding_mode: catalog.lane.funding_mode,
-    revenue_source: catalog.lane.revenue_source,
-    current_callable_lane_contract: catalog.lane.current_callable_lane_contract,
+    lane_id: catalog.lane?.lane_id ?? "unavailable",
+    capital_source: catalog.lane?.capital_source ?? "unknown",
+    funding_mode: catalog.lane?.funding_mode ?? "unknown",
+    revenue_source: catalog.lane?.revenue_source ?? "unknown",
+    current_callable_lane_contract:
+      catalog.lane?.current_callable_lane_contract ?? "unavailable",
     live_claim_scope: summary.live_claim_scope,
-    can_agent_complete_real_credit_now: catalog.current_truth.can_agent_complete_real_credit_now,
+    can_agent_complete_real_credit_now:
+      catalog.current_truth?.can_agent_complete_real_credit_now === true,
     real_credit_blockers: summary.real_credit_blockers,
-    agent_operability_state: catalog.current_truth.agent_operability_state,
-    recommended_package: catalog.current_truth.recommended_package ?? null,
-    recommended_wrapper: catalog.current_truth.recommended_wrapper ?? null,
+    agent_operability_state:
+      catalog.current_truth?.agent_operability_state ?? "unavailable",
+    recommended_package: catalog.current_truth?.recommended_package ?? null,
+    recommended_wrapper: catalog.current_truth?.recommended_wrapper ?? null,
     recommendation: recommendation.recommendation,
     recommendation_reasons: recommendation.recommendation_reasons,
-    action_order: [...catalog.action_order],
+    action_order: Array.isArray(catalog.action_order) ? [...catalog.action_order] : [],
     artifact_paths: artifactPaths,
   };
 

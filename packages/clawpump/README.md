@@ -16,7 +16,7 @@ This package is intentionally:
 
 It is not:
 1. a public SDK
-2. a borrower-owned `Pump -> Swig` abstraction
+2. a borrower-owned wallet-stack abstraction
 3. a claim that ClawPump third-party fee-admin parity is live
 
 Current scope:
@@ -54,7 +54,7 @@ Proof posture:
 1. this package only proves the typed adapter contract and deterministic mock behavior
 2. it does not yet prove live ClawPump backend access
 3. it does not yet prove a real repayment-mode pilot against partner infrastructure
-4. the fastest truthful partner start is now the file-backed harness path in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md), which packages partner exports/readbacks without pretending the hosted attn callable fallback already matches the clawpump lane
+4. the fastest truthful partner start is now the file-backed harness path in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md), which packages partner exports/readbacks without pretending the hosted attn comparison surface already matches the clawpump lane
 
 How this feeds the generic SDK contract:
 1. this package is one concrete backend-native source for the partner-managed SDK interface in `@attn-credit/sdk`
@@ -65,7 +65,7 @@ How this feeds the generic SDK contract:
    - the evidence pack used for pilot review
 3. drift or control changes discovered here should be forwarded into the shared SDK drift signal instead of staying as a ClawPump-only status note
 4. it is not itself the policy or invariant proof
-5. do not reinterpret the adapter package as proof of borrower-owned Swig parity, payout-control parity, or public/prod readiness
+5. do not reinterpret the adapter package as proof of attn-managed payout-control parity, payout-control parity in general, or public/prod readiness
 
 Fresh repo rule:
 1. in a new repo, consume this adapter or the generic SDK contract instead of re-declaring the receipt and classifier shapes,

@@ -39,6 +39,8 @@ This harness does not prove:
 
 It proves the execution contract, the artifact contract, and the failure posture of the public SDK surface.
 
+The first real ClawPump retained run was packaged on April 20, 2026 from non-demo mainnet-beta payout, fee, launch, revenue, and repayment-mode readbacks. It retained successfully at `stage_1_platform_counterparty_mvp` / `compatibility_only`. Treat that as real SDK compatibility proof, not as proof of positive revenue flow, financing readiness, repayment-target invariants, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+
 ## Example
 
 ```bash
@@ -81,7 +83,23 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-That file-backed command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It retains the packaged partner readbacks and the derived SDK artifacts without implying the hosted attn callable fallback is already the same lane.
+For real partner data, include the partner metadata flags:
+
+```bash
+pnpm run harness:partner-managed-pack-from-files -- \
+  --out-dir ./tmp/harness-runs \
+  --launch <real-launch-json> \
+  --payout-topology <real-payout-topology-json> \
+  --creator-fee-state <real-creator-fee-state-json> \
+  --revenue-events <real-revenue-events-json> \
+  --repayment-mode <real-repayment-mode-json> \
+  --partner-id clawpump \
+  --display-name ClawPump
+```
+
+Without those flags, the generic command retains `partner_demo` / `Partner Demo` descriptor metadata by design.
+
+That file-backed command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It retains the packaged partner readbacks and the derived SDK artifacts without implying that the partner already matches any attn-hosted reference path.
 
 If you are not sure which files to gather first, start with:
 
@@ -90,20 +108,17 @@ If you are not sure which files to gather first, start with:
 
 Legacy `clawpump-*` command names still work as compatibility aliases for the reference adapter. Public partner starts should use the `partner-managed-*` names.
 
-If you want the harness to snapshot the current hosted attn callable fallback tuple too, provide the explicit preset tuple instead of making the CLI guess:
+If you want the harness to snapshot attn's current hosted reference path too, provide the current attn-hosted parameters explicitly instead of making the CLI guess:
 
 ```bash
 pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
-  --attn-base-url https://app.attn.markets \
-  --preset-id solana_borrower_legacy_swig \
-  --creator-ingress-mode via-borrower \
-  --control-profile-id attn_default
+  --attn-base-url https://app.attn.markets
 ```
 
 The command prints a compact JSON summary to stdout and writes a timestamped run directory under the chosen output root.
 
-That attn capabilities snapshot is only a comparison point against the current hosted callable fallback. It is not proof of clawpump payout-control parity or partner-managed wallet equivalence.
+That attn capabilities snapshot is only a comparison point against attn's current hosted reference surface. It is not proof of clawpump payout-control parity or partner-managed wallet equivalence.
 
 Matrix example:
 
@@ -113,9 +128,9 @@ pnpm run harness:partner-managed-mock-matrix -- --out-dir ./tmp/harness-runs
 
 The matrix command retains a baseline run plus degraded partner-read scenarios so the stage classifier, residual-risk outputs, and evidence packaging can be compared side by side.
 
-## Hosted attn callable fallback gauge
+## Optional attn-hosted reference gauge
 
-For the currently hosted attn treasury-funded Pump creator-fee fallback lane, this CLI also exposes three live commands through the public SDK:
+This CLI also exposes three live commands through the public SDK for checking attn's own current hosted route truth:
 
 ```bash
 pnpm run harness:attn-live-catalog:human
@@ -131,28 +146,20 @@ Use those commands when you want to:
 2. see which borrower actions are immediately ready versus context-bound,
 3. and execute a bounded borrower action through the public SDK wrapper without rebuilding the catalog/action contract locally.
 
-Those commands describe the current hosted callable fallback only. They do not prove the partner-managed own-wallet lane, the broader public borrower market, or a canonical borrower UI surface.
+Those commands describe attn's current hosted reference surface only. They do not prove the partner-managed own-wallet lane, the broader public borrower market, or a canonical borrower UI surface.
 
-If you have a hosted legacy Swig onboarding payload, the same public CLI can drive the hosted session flow:
+If you explicitly need to inspect one older hosted path for attn-side debugging, use the payload scaffold under `examples/attn-live/` together with the exact current attn-hosted parameters from CLI help. Most partner-managed integrations can ignore this section.
 
-```bash
-pnpm run harness:attn-live-action:human -- \
-  --action start_onboarding \
-  --payload-file ./examples/attn-live/swig-start-onboarding.payload.example.json
-```
+Fresh hosted proof from April 21, 2026:
 
-That file is a scaffold. Replace the borrower wallet, session auth proof, and verifier evidence with real values.
-
-Fresh hosted proof from April 10, 2026:
-
-1. `start_onboarding` can create a hosted session.
-2. `execute_handoff` then truthfully stops at `route-lock transactions must be confirmed on-chain` until the lock is actually confirmed.
-3. `open_credit_line` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release is recorded.
+1. the live CLI can read current attn-hosted route truth and execute bounded checks like `check_credit`.
+2. those hosted checks are still discovery-only for real credit and should not be treated as proof that a live funded lane is ready.
+3. one older hosted path remains blocked on external Pump creator-fee finalization and signer access.
 
 See:
 
 - [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
-- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+- `examples/attn-live/*.payload.example.json`
 
 ## Fresh external repo acceptance bar
 

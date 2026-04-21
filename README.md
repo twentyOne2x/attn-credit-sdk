@@ -20,7 +20,9 @@ For a partner-managed own-wallet lane, it gives attn and a partner one shared co
 
 For a Pump or ClawPump-style partner, that means the SDK is the public contract for qualifying and packaging the creator-fee-backed borrower lane when the partner keeps its own wallet and payout infrastructure.
 
-For the currently hosted attn treasury-funded fallback lane, the public SDK also exposes one bounded live wrapper and live CLI gauge/action commands so a caller can inspect the current callable borrower contract without reconstructing raw catalog fields by hand.
+As of April 20, 2026, the first real ClawPump retained run has been packaged from non-demo mainnet-beta ClawPump payout, fee, launch, revenue, and repayment-mode readbacks. That proof reached `stage_1_platform_counterparty_mvp` with `compatibility_only` claim level. It proves the public SDK can retain a real ClawPump artifact bundle, but it does not prove positive revenue flow, financing readiness, repayment-target invariants, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+
+The public SDK also exposes one optional attn-hosted reference surface so a caller can inspect attn's current hosted route truth without reconstructing raw catalog fields by hand. That surface is useful as a reference check for attn's own host. It is not the starting contract for a partner-managed integration, and it should not be presented to a partner as if it described the partner's wallet architecture.
 
 ## What this does not enable by itself
 
@@ -107,7 +109,23 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It packages partner-provided readbacks into retained receipts, descriptor output, stage assessment, and evidence-pack artifacts without pretending the partner has adopted the current attn callable fallback lane.
+For a real partner bundle, stamp the retained descriptor with the actual partner metadata:
+
+```bash
+pnpm run harness:partner-managed-pack-from-files -- \
+  --out-dir ./tmp/harness-runs \
+  --launch <real-launch-json> \
+  --payout-topology <real-payout-topology-json> \
+  --creator-fee-state <real-creator-fee-state-json> \
+  --revenue-events <real-revenue-events-json> \
+  --repayment-mode <real-repayment-mode-json> \
+  --partner-id clawpump \
+  --display-name ClawPump
+```
+
+If those metadata flags are omitted, the retained SDK descriptor uses the generic demo defaults (`partner_demo` / `Partner Demo`) even when the underlying receipts are ClawPump-family receipts.
+
+That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It packages partner-provided readbacks into retained receipts, descriptor output, stage assessment, and evidence-pack artifacts without implying that the partner already matches any attn-hosted reference path.
 
 If you are not sure what data to gather first, start with:
 
@@ -115,9 +133,9 @@ If you are not sure what data to gather first, start with:
 
 Legacy `clawpump-*` harness commands still exist as compatibility aliases for the reference adapter. Public docs should prefer the `partner-managed-*` names.
 
-## Hosted attn fallback via the public SDK
+## Optional attn-hosted reference checks
 
-If you want to gauge the currently hosted attn treasury-funded Pump creator-fee fallback lane itself, use the live SDK commands:
+If you want to check attn's own current hosted route truth through the same public package, use the live SDK commands:
 
 ```bash
 pnpm run harness:attn-live-catalog:human
@@ -135,28 +153,20 @@ They are the public way to:
 2. inspect which borrower actions are ready versus context-bound,
 3. and execute bounded borrower actions like `check_credit` when the input context is public enough to provide.
 
-They are not a claim that the broader borrower UI, public market, or partner-managed own-wallet runtime is the same thing.
+They are not a claim that the broader borrower UI, public market, or partner-managed own-wallet runtime is the same thing. Treat them as attn-hosted reference checks only, not as the starting contract for a partner that keeps its own payout and wallet stack.
 
-If you have the borrower-controlled onboarding payload for the hosted legacy Swig lane, you can also drive the next hosted session step through the same public CLI:
+If you specifically need to inspect one older hosted path for attn-side debugging, use the `examples/attn-live/` payload scaffold together with the exact current attn-hosted parameters from CLI help. Most partner-managed integrations can ignore this section entirely.
 
-```bash
-pnpm run harness:attn-live-action:human -- \
-  --action start_onboarding \
-  --payload-file ./examples/attn-live/swig-start-onboarding.payload.example.json
-```
+Fresh hosted proof from April 21, 2026:
 
-That payload file is a scaffold, not a replayable live blob. Replace the placeholder borrower wallet, auth proof, and verifier evidence with real values from the borrower session.
-
-Fresh hosted proof from April 10, 2026:
-
-1. `start_onboarding` can create a hosted session through the public SDK.
-2. `execute_handoff` truthfully stops at `route-lock transactions must be confirmed on-chain` until route-lock confirmation is real.
-3. `open_credit_line` truthfully stops at `TREASURY_FUNDING_NOT_STARTED` until operator treasury release exists.
+1. the public commands can read current attn-hosted route truth and execute bounded checks like `check_credit`.
+2. those hosted checks are still discovery-only for real credit and should not be treated as proof that a live funded lane is ready.
+3. one older hosted path remains blocked on external Pump creator-fee finalization and signer access.
 
 Reference files:
 
 - [examples/attn-live/README.md](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/README.md)
-- [examples/attn-live/swig-start-onboarding.payload.example.json](https://github.com/twentyOne2x/attn-credit-sdk/blob/main/examples/attn-live/swig-start-onboarding.payload.example.json)
+- `examples/attn-live/*.payload.example.json`
 
 Fresh external repo rule:
 
@@ -218,18 +228,15 @@ If you are handing this to an external team or AI, use the canonical base prompt
 
 - [docs.attn.markets/users/partner-managed-creator-fee-integration#72-base-prompt-for-an-external-team-or-ai](https://docs.attn.markets/users/partner-managed-creator-fee-integration#72-base-prompt-for-an-external-team-or-ai)
 
-If you explicitly want to snapshot the current hosted attn callable fallback tuple as a comparison point, use:
+If you explicitly want to snapshot attn's current hosted reference path as a comparison point, use the mock pilot command and pass the current attn-hosted parameters explicitly rather than assuming they match a partner-managed lane:
 
 ```bash
 pnpm run harness:partner-managed-mock-pilot -- \
   --out-dir ./tmp/harness-runs \
-  --attn-base-url https://app.attn.markets \
-  --preset-id solana_borrower_legacy_swig \
-  --creator-ingress-mode via-borrower \
-  --control-profile-id attn_default
+  --attn-base-url https://app.attn.markets
 ```
 
-That attn capabilities snapshot is about the current hosted fallback contract only. It is not proof that a partner-managed wallet stack already matches that runtime lane.
+That attn capabilities snapshot is about attn's current hosted reference contract only. It is not proof that a partner-managed wallet stack already matches that runtime lane.
 
 Comparative matrix run:
 

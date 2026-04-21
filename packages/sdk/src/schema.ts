@@ -6,8 +6,10 @@ export type SupportedCluster = (typeof SUPPORTED_CLUSTERS)[number];
 export const ATTN_CHAINS = ["solana", "evm"] as const;
 export type AttnChain = (typeof ATTN_CHAINS)[number];
 
-export const CREATOR_INGRESS_MODES = ["via-borrower", "direct-to-swig"] as const;
+export const CREATOR_INGRESS_MODES = ["session_handoff", "managed_destination"] as const;
 export type CreatorIngressMode = (typeof CREATOR_INGRESS_MODES)[number];
+export const LEGACY_CREATOR_INGRESS_MODES = ["via-borrower", "direct-to-swig"] as const;
+export type LegacyCreatorIngressMode = (typeof LEGACY_CREATOR_INGRESS_MODES)[number];
 
 export const CONTROL_PROFILE_IDS = ["none", "attn_default", "partner_managed_light", "partner_managed_firm"] as const;
 export type ControlProfileId = (typeof CONTROL_PROFILE_IDS)[number];
@@ -35,7 +37,7 @@ export type PrivateTreasuryFinancingState = (typeof PRIVATE_TREASURY_FINANCING_S
 export const PARTNER_MANAGED_REPAYMENT_ENFORCEMENT_CLASSES = [
   "partner_policy_only",
   "partner_policy_plus_attn_verifier",
-  "swig_equivalent_partner_control",
+  "full_control_parity",
 ] as const;
 export type PartnerManagedRepaymentEnforcementClass =
   (typeof PARTNER_MANAGED_REPAYMENT_ENFORCEMENT_CLASSES)[number];
@@ -79,7 +81,7 @@ export const PARTNER_MANAGED_CLAIM_LEVELS = [
   "compatibility_only",
   "underwriting_compatible",
   "repayment_control_compatible",
-  "swig_equivalent_partner_control_compatible",
+  "full_control_parity_compatible",
 ] as const;
 export type PartnerManagedClaimLevel = (typeof PARTNER_MANAGED_CLAIM_LEVELS)[number];
 
@@ -285,19 +287,125 @@ export type PartnerReceiptRoute = "capabilities" | "stage_status" | "action";
 export const PARTNER_ROUTE_DEFAULTS = {
   chain: "solana" as AttnChain,
   cluster: "mainnet-beta" as SupportedCluster,
-  creator_ingress_mode: "via-borrower" as CreatorIngressMode,
+  creator_ingress_mode: "session_handoff" as CreatorIngressMode,
   control_profile_id: "attn_default" as ControlProfileId,
 };
 
 export const SDK_CLIENT_DEFAULTS = {
   chain: "solana" as AttnChain,
   cluster: "mainnet-beta" as SupportedCluster,
-  creator_ingress_mode: "direct-to-swig" as CreatorIngressMode,
+  creator_ingress_mode: "managed_destination" as CreatorIngressMode,
   control_profile_id: "partner_managed_light" as ControlProfileId,
 };
 
+const PRESET_ID_TRANSPORT_ALIASES = {
+  solana_borrower_attn_hosted: "solana_borrower_legacy_swig",
+} as const;
+
 function normalizeCreatorIngressMode(value: string): string {
-  return value.replace(/_/g, "-").toLowerCase();
+  return value.trim().replace(/-/g, "_").toLowerCase();
+}
+
+function canonicalCreatorIngressMode(value: string): CreatorIngressMode | null {
+  switch (normalizeCreatorIngressMode(value)) {
+    case "session_handoff":
+    case "via_borrower":
+      return "session_handoff";
+    case "managed_destination":
+    case "direct_to_swig":
+      return "managed_destination";
+    default:
+      return null;
+  }
+}
+
+function normalizePartnerManagedRepaymentEnforcementClass(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function canonicalPartnerManagedRepaymentEnforcementClass(
+  value: string,
+): PartnerManagedRepaymentEnforcementClass | null {
+  switch (normalizePartnerManagedRepaymentEnforcementClass(value)) {
+    case "partner_policy_only":
+      return "partner_policy_only";
+    case "partner_policy_plus_attn_verifier":
+      return "partner_policy_plus_attn_verifier";
+    case "full_control_parity":
+    case "swig_equivalent_partner_control":
+      return "full_control_parity";
+    default:
+      return null;
+  }
+}
+
+function normalizePartnerManagedClaimLevel(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function canonicalPartnerManagedClaimLevel(
+  value: string,
+): PartnerManagedClaimLevel | null {
+  switch (normalizePartnerManagedClaimLevel(value)) {
+    case "compatibility_only":
+      return "compatibility_only";
+    case "underwriting_compatible":
+      return "underwriting_compatible";
+    case "repayment_control_compatible":
+      return "repayment_control_compatible";
+    case "full_control_parity_compatible":
+    case "swig_equivalent_partner_control_compatible":
+      return "full_control_parity_compatible";
+    default:
+      return null;
+  }
+}
+
+export function creatorIngressModeToTransport(
+  value: CreatorIngressMode | string,
+): LegacyCreatorIngressMode {
+  const canonical = canonicalCreatorIngressMode(value);
+  if (!canonical) {
+    throw new Error(
+      "creator_ingress_mode must be session_handoff or managed_destination",
+    );
+  }
+  return canonical === "session_handoff" ? "via-borrower" : "direct-to-swig";
+}
+
+export function creatorIngressModeFromTransport(
+  value: CreatorIngressMode | LegacyCreatorIngressMode | string,
+): CreatorIngressMode | null {
+  return canonicalCreatorIngressMode(value);
+}
+
+export function partnerManagedRepaymentEnforcementClassFromTransport(
+  value: PartnerManagedRepaymentEnforcementClass | string,
+): PartnerManagedRepaymentEnforcementClass | null {
+  return canonicalPartnerManagedRepaymentEnforcementClass(value);
+}
+
+export function partnerManagedClaimLevelFromTransport(
+  value: PartnerManagedClaimLevel | string,
+): PartnerManagedClaimLevel | null {
+  return canonicalPartnerManagedClaimLevel(value);
+}
+
+export function presetIdToTransport(value: string): string {
+  const normalized = value.trim();
+  return PRESET_ID_TRANSPORT_ALIASES[
+    normalized as keyof typeof PRESET_ID_TRANSPORT_ALIASES
+  ] ?? normalized;
+}
+
+export function presetIdFromTransport(value: string): string {
+  const normalized = value.trim();
+  for (const [canonical, legacy] of Object.entries(PRESET_ID_TRANSPORT_ALIASES)) {
+    if (normalized === legacy) {
+      return canonical;
+    }
+  }
+  return normalized;
 }
 
 export const zAttnChain = z.enum(ATTN_CHAINS);
@@ -306,9 +414,15 @@ export const zProofState = z.enum(PROOF_STATES);
 export const zPublicClaimState = z.enum(PUBLIC_CLAIM_STATES);
 export const zPartnerWalletOperatorModel = z.enum(PARTNER_WALLET_OPERATOR_MODELS);
 export const zPrivateTreasuryFinancingState = z.enum(PRIVATE_TREASURY_FINANCING_STATES);
-export const zPartnerManagedRepaymentEnforcementClass = z.enum(
-  PARTNER_MANAGED_REPAYMENT_ENFORCEMENT_CLASSES,
-);
+export const zPartnerManagedRepaymentEnforcementClass = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => canonicalPartnerManagedRepaymentEnforcementClass(value))
+  .refine(
+    (value): value is PartnerManagedRepaymentEnforcementClass => value !== null,
+    "repayment_enforcement_class must be partner_policy_only, partner_policy_plus_attn_verifier, or full_control_parity",
+  );
 export const zPartnerWalletPolicyRequirementId = z.enum(
   PARTNER_WALLET_POLICY_REQUIREMENT_IDS,
 );
@@ -316,7 +430,15 @@ export const zPartnerWalletPolicyRequirementState = z.enum(
   PARTNER_WALLET_POLICY_REQUIREMENT_STATES,
 );
 export const zPartnerManagedIntegrationStage = z.enum(PARTNER_MANAGED_INTEGRATION_STAGES);
-export const zPartnerManagedClaimLevel = z.enum(PARTNER_MANAGED_CLAIM_LEVELS);
+export const zPartnerManagedClaimLevel = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => canonicalPartnerManagedClaimLevel(value))
+  .refine(
+    (value): value is PartnerManagedClaimLevel => value !== null,
+    "claim_level must be compatibility_only, underwriting_compatible, repayment_control_compatible, or full_control_parity_compatible",
+  );
 export const zPartnerManagedRevenueScopeModel = z.enum(PARTNER_MANAGED_REVENUE_SCOPE_MODELS);
 export const zPartnerManagedReadbackSourceKind = z.enum(
   PARTNER_MANAGED_READBACK_SOURCE_KINDS,
@@ -334,11 +456,10 @@ export const zCreatorIngressMode = z
   .string()
   .trim()
   .min(1)
-  .transform(normalizeCreatorIngressMode)
+  .transform((value) => canonicalCreatorIngressMode(value))
   .refine(
-    (value): value is CreatorIngressMode =>
-      value === "via-borrower" || value === "direct-to-swig",
-    "creator_ingress_mode must be via-borrower or direct-to-swig",
+    (value): value is CreatorIngressMode => value !== null,
+    "creator_ingress_mode must be session_handoff or managed_destination",
   );
 
 export const zControlProfileId = z
@@ -1152,7 +1273,7 @@ export type PartnerCatalogLane = {
   notes: string[];
 };
 
-export type PartnerCatalogResponse = {
+export type PartnerCatalogSuccessResponse = {
   ok: true;
   catalog_version: "v1";
   lane: PartnerCatalogLane;
@@ -1160,6 +1281,17 @@ export type PartnerCatalogResponse = {
   action_order: PartnerActionName[];
   routes: PartnerCatalogRouteDefinition[];
 };
+
+export type PartnerCatalogErrorResponse = PartnerApiResponse & {
+  ok: false;
+  catalog_version?: "v1";
+  lane?: PartnerCatalogLane;
+  current_truth?: PartnerCatalogCurrentTruth;
+  action_order?: PartnerActionName[];
+  routes?: PartnerCatalogRouteDefinition[];
+};
+
+export type PartnerCatalogResponse = PartnerCatalogSuccessResponse | PartnerCatalogErrorResponse;
 
 export function inferChainFromPresetId(presetId: string): AttnChain | null {
   const normalized = presetId.trim().toLowerCase();
@@ -1311,7 +1443,7 @@ function defaultPartnerManagedNotes(
   }
 
   if (claimLevel === "compatibility_only") {
-    notes.push("Do not claim financing readiness or Swig-equivalent control from this package.");
+    notes.push("Do not claim financing readiness or full control parity from this package.");
   }
 
   return notes;
@@ -1388,7 +1520,7 @@ export function createPartnerManagedWalletPolicyTemplate(args: {
     downgrade_if_missing:
       args.downgrade_if_missing ?? [
         "keep the lane compatibility_only or underwriting_compatible",
-        "do not claim Swig-equivalent control",
+        "do not claim full control parity",
         "keep the first lane private-treasury and operator-gated",
         "do not claim public or prod readiness",
       ],
@@ -1491,7 +1623,7 @@ export function classifyPartnerManagedLane(args: {
   }
   if (reachedStage4) {
     stage = "stage_4_full_partner_managed_standard";
-    claimLevel = "swig_equivalent_partner_control_compatible";
+    claimLevel = "full_control_parity_compatible";
   }
 
   let nextRequirementIds: PartnerWalletPolicyRequirementId[] = [];

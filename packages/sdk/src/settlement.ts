@@ -201,8 +201,8 @@ export function createSettlementCoreProjection(input: SettlementCoreProjectionIn
     ...(input.notes ?? []),
   ];
 
-  if (input.creator_ingress_mode === "via-borrower") {
-    notes.push("via-borrower routing remains cohort- and preflight-dependent.");
+  if (input.creator_ingress_mode === "session_handoff") {
+    notes.push("session-handoff routing remains cohort- and preflight-dependent.");
   }
   if (input.blocked) {
     notes.push("settlement route remains inactive until lane blockers clear.");

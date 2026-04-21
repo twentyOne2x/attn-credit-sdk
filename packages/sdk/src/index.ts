@@ -9,6 +9,7 @@ import type {
   PartnerApiResponse,
   PartnerBaseRequest,
   PartnerCatalogRequest,
+  PartnerCatalogCurrentTruth,
   PartnerCatalogResponse,
   PartnerCapabilitiesRequest,
   PartnerCapabilitiesResponse,
@@ -16,7 +17,16 @@ import type {
   PartnerStageStatusResponse,
   SupportedCluster,
 } from "./schema";
-import { inferChainFromPresetId, withPartnerDefaults } from "./schema";
+import {
+  creatorIngressModeFromTransport,
+  creatorIngressModeToTransport,
+  inferChainFromPresetId,
+  partnerManagedClaimLevelFromTransport,
+  partnerManagedRepaymentEnforcementClassFromTransport,
+  presetIdFromTransport,
+  presetIdToTransport,
+  withPartnerDefaults,
+} from "./schema";
 import {
   buildAttnEip8183HookEnvelope,
   createAttnEip8183Metadata,
@@ -100,16 +110,16 @@ export type AttnAgentCapabilitiesOutcome = {
 
 export type AttnAgentCatalogOutcome = {
   response: PartnerCatalogResponse;
-  live_claim_scope: PartnerCatalogResponse["current_truth"]["live_claim_scope"];
+  live_claim_scope: PartnerCatalogCurrentTruth["live_claim_scope"];
   real_credit_blockers: string[];
-  closure_hosted_state: PartnerCatalogResponse["current_truth"]["closure_hosted_state"] | null;
+  closure_hosted_state: PartnerCatalogCurrentTruth["closure_hosted_state"] | null;
   first_private_lane_semantics:
-    PartnerCatalogResponse["current_truth"]["first_private_lane_semantics"] | null;
-  pilot_path_truth: PartnerCatalogResponse["current_truth"]["pilot_path_truth"] | null;
+    PartnerCatalogCurrentTruth["first_private_lane_semantics"] | null;
+  pilot_path_truth: PartnerCatalogCurrentTruth["pilot_path_truth"] | null;
   private_parity_receipt:
-    PartnerCatalogResponse["current_truth"]["private_parity_receipt"] | null;
+    PartnerCatalogCurrentTruth["private_parity_receipt"] | null;
   hosted_state_posture: AttnAgentCatalogHostedStatePosture;
-  dashboard_speed: NonNullable<PartnerCatalogResponse["current_truth"]["dashboard_speed"]> | null;
+  dashboard_speed: NonNullable<PartnerCatalogCurrentTruth["dashboard_speed"]> | null;
   speed_posture: AttnAgentCatalogSpeedPosture;
   speed_blockers: string[];
 };
@@ -135,8 +145,8 @@ export type AttnAgentLoanToolsOptions = {
 
 export const ATTN_PUMP_AGENT_BORROWER_DEFAULTS = {
   cluster: "mainnet-beta" as SupportedCluster,
-  preset_id: "solana_borrower_legacy_swig",
-  creator_ingress_mode: "via-borrower" as CreatorIngressMode,
+  preset_id: "solana_borrower_attn_hosted",
+  creator_ingress_mode: "managed_destination" as CreatorIngressMode,
   control_profile_id: "attn_default" as ControlProfileId,
 };
 
@@ -169,6 +179,70 @@ function buildQuery(params: Record<string, unknown>): string {
   }
   const serialized = search.toString();
   return serialized.length > 0 ? `?${serialized}` : "";
+}
+
+function normalizeTransportScalar(key: string, value: unknown): unknown {
+  if (typeof value !== "string") return value;
+
+  if (key === "creator_ingress_mode") {
+    return creatorIngressModeFromTransport(value) ?? value;
+  }
+  if (key === "preset_id") {
+    return presetIdFromTransport(value);
+  }
+  if (key === "repayment_enforcement_class") {
+    return partnerManagedRepaymentEnforcementClassFromTransport(value) ?? value;
+  }
+  if (key === "claim_level") {
+    return partnerManagedClaimLevelFromTransport(value) ?? value;
+  }
+  return value;
+}
+
+function normalizeTransportPayload<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeTransportPayload(entry)) as T;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const normalized: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(record)) {
+      normalized[key] = normalizeTransportScalar(
+        key,
+        normalizeTransportPayload(entry),
+      );
+    }
+    return normalized as T;
+  }
+  return value;
+}
+
+function serializeTransportScalar(key: string, value: unknown): unknown {
+  if (key === "preset_id" && typeof value === "string") {
+    return presetIdToTransport(value);
+  }
+  if (key === "creator_ingress_mode" && typeof value === "string") {
+    return creatorIngressModeToTransport(value);
+  }
+  return value;
+}
+
+function serializeTransportPayload<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((entry) => serializeTransportPayload(entry)) as T;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const serialized: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(record)) {
+      serialized[key] = serializeTransportScalar(
+        key,
+        serializeTransportPayload(entry),
+      );
+    }
+    return serialized as T;
+  }
+  return value;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -204,7 +278,7 @@ function replayedFromResponse(response: PartnerActionResponse): boolean {
 }
 
 function classifyCatalogSpeedPosture(
-  dashboardSpeed: PartnerCatalogResponse["current_truth"]["dashboard_speed"] | null | undefined,
+  dashboardSpeed: PartnerCatalogCurrentTruth["dashboard_speed"] | null | undefined,
 ): AttnAgentCatalogSpeedPosture {
   if (!dashboardSpeed) return "unproven";
   if (
@@ -223,7 +297,7 @@ function classifyCatalogSpeedPosture(
 }
 
 function classifyCatalogHostedStatePosture(
-  closureHostedState: PartnerCatalogResponse["current_truth"]["closure_hosted_state"] | null | undefined,
+  closureHostedState: PartnerCatalogCurrentTruth["closure_hosted_state"] | null | undefined,
 ): AttnAgentCatalogHostedStatePosture {
   if (!closureHostedState) return "unknown";
   if (
@@ -268,19 +342,22 @@ export function createAttnClient(options: AttnClientOptions) {
         "content-type": "application/json",
         ...(options.headers ?? {}),
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(serializeTransportPayload(body)),
     });
-    return (await parseJson(response)) as TResponse;
+    return normalizeTransportPayload((await parseJson(response)) as TResponse);
   }
 
   async function get<TResponse extends Record<string, unknown>>(pathname: string, params?: Record<string, unknown>): Promise<TResponse> {
-    const response = await fetchImpl(`${baseUrl}${pathname}${buildQuery(params ?? {})}`, {
+    const response = await fetchImpl(
+      `${baseUrl}${pathname}${buildQuery(serializeTransportPayload(params ?? {}))}`,
+      {
       method: "GET",
       headers: {
         ...(options.headers ?? {}),
       },
-    });
-    return (await parseJson(response)) as TResponse;
+    },
+    );
+    return normalizeTransportPayload((await parseJson(response)) as TResponse);
   }
 
   function createBaseAdapter(defaultChain?: AttnChain) {
@@ -501,12 +578,42 @@ export function summarizeCapabilities(
 }
 
 export function summarizeCatalog(response: PartnerCatalogResponse): AttnAgentCatalogOutcome {
-  const closureHostedState = response.current_truth.closure_hosted_state ?? null;
+  const currentTruth = response.current_truth ?? null;
+  if (!currentTruth) {
+    const responseRecord = response as unknown as Record<string, unknown>;
+    const errorBlockers = Array.from(
+      new Set(
+        [
+          ...asStringArray(responseRecord.blocker_codes),
+          ...asStringArray(responseRecord.blockers),
+          typeof responseRecord.code === "string" ? responseRecord.code : null,
+          typeof responseRecord.message === "string" ? responseRecord.message : null,
+        ].filter((value): value is string => Boolean(value && value.trim().length > 0)),
+      ),
+    );
+
+    return {
+      response,
+      live_claim_scope: "none",
+      real_credit_blockers:
+        errorBlockers.length > 0 ? errorBlockers : ["catalog_current_truth_missing"],
+      closure_hosted_state: null,
+      first_private_lane_semantics: null,
+      pilot_path_truth: null,
+      private_parity_receipt: null,
+      hosted_state_posture: "unknown",
+      dashboard_speed: null,
+      speed_posture: "unproven",
+      speed_blockers: ["catalog_dashboard_speed_missing"],
+    };
+  }
+
+  const closureHostedState = currentTruth.closure_hosted_state ?? null;
   const firstPrivateLaneSemantics =
-    response.current_truth.first_private_lane_semantics ?? null;
-  const pilotPathTruth = response.current_truth.pilot_path_truth ?? null;
-  const privateParityReceipt = response.current_truth.private_parity_receipt ?? null;
-  const dashboardSpeed = response.current_truth.dashboard_speed ?? null;
+    currentTruth.first_private_lane_semantics ?? null;
+  const pilotPathTruth = currentTruth.pilot_path_truth ?? null;
+  const privateParityReceipt = currentTruth.private_parity_receipt ?? null;
+  const dashboardSpeed = currentTruth.dashboard_speed ?? null;
   const speedBlockers = Array.from(
     new Set(
       [
@@ -518,8 +625,8 @@ export function summarizeCatalog(response: PartnerCatalogResponse): AttnAgentCat
 
   return {
     response,
-    live_claim_scope: response.current_truth.live_claim_scope,
-    real_credit_blockers: asStringArray(response.current_truth.real_credit_blockers),
+    live_claim_scope: currentTruth.live_claim_scope,
+    real_credit_blockers: asStringArray(currentTruth.real_credit_blockers),
     closure_hosted_state: closureHostedState,
     first_private_lane_semantics: firstPrivateLaneSemantics,
     pilot_path_truth: pilotPathTruth,

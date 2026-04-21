@@ -220,7 +220,7 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
       "--preset-id",
       "solana_borrower_privy_only",
       "--creator-ingress-mode",
-      "direct-to-swig",
+      "managed_destination",
       "--control-profile-id",
       "partner_managed_light",
     ]);
@@ -229,7 +229,7 @@ test("partner harness CLI snapshots attn catalog and capabilities through a dete
   assert.equal(result.summary.attn_catalog_snapshot, true);
   assert.equal(result.summary.attn_capabilities_snapshot, true);
   assert.equal(result.summary.attn_snapshot_scope, "current_callable_fallback_tuple");
-  assert.match(result.summary.attn_snapshot_note, /current hosted callable fallback tuple/i);
+  assert.match(result.summary.attn_snapshot_note, /current hosted comparison tuple/i);
 
     const catalogFile = await readFile(result.summary.artifact_paths.attn_catalog, "utf8");
     const capabilitiesFile = await readFile(result.summary.artifact_paths.attn_capabilities, "utf8");
@@ -347,6 +347,61 @@ test("partner harness CLI can gauge the live attn catalog through the public SDK
     assert.equal(result.summary.recommended_wrapper, "createPumpAgentBorrowerTools");
     assert.ok(result.summary.artifact_paths.catalog);
     assert.ok(result.summary.artifact_paths.catalog_summary);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("attn live catalog CLI fails closed instead of crashing on hosted non-Pump catalog receipts", async () => {
+  const server = http.createServer((request, response) => {
+    if (request.url?.startsWith("/api/partner/credit/catalog")) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          ok: false,
+          receipt_type: "partner_error_receipt",
+          request_id: "attn_credit_catalog_wrong_chain",
+          code: "BAD_REQUEST",
+          message:
+            "attn-credit Railway catalog currently describes only the bounded EVM Safe lane.",
+        }),
+      );
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: false }));
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("failed to bind local test server");
+  }
+
+  try {
+    const outDir = await mkdtemp(path.join(os.tmpdir(), "attn-sdk-live-catalog-error-"));
+    const result = await runCliRaw([
+      "attn-live-catalog",
+      "--out-dir",
+      outDir,
+      "--attn-base-url",
+      `http://127.0.0.1:${address.port}`,
+      "--format",
+      "human",
+    ]).catch((error: { stdout?: string; stderr?: string }) => ({
+      stdout: (error.stdout ?? "").trim(),
+      stderr: (error.stderr ?? "").trim(),
+    }));
+
+    assert.equal(result.stderr, "");
+    assert.match(result.stdout, /ok: no/);
+    assert.match(result.stdout, /live claim scope: none/);
+    assert.match(result.stdout, /real credit now: no/);
+    assert.match(result.stdout, /BAD_REQUEST/);
+    assert.match(result.stdout, /bounded EVM Safe lane/);
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
@@ -507,7 +562,7 @@ test("partner harness CLI can hit live capabilities and action commands through 
     const actionCall = calls.find((call) => call.url === "/api/partner/credit/action");
     assert.ok(capabilitiesCall);
     assert.equal(capabilitiesCall!.body?.preset_id, "solana_borrower_legacy_swig");
-    assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "via-borrower");
+    assert.equal(capabilitiesCall!.body?.creator_ingress_mode, "direct-to-swig");
     assert.ok(actionCall);
     assert.equal(actionCall!.body?.action, "check_credit");
     assert.equal(actionCall!.body?.mint, "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu");
@@ -593,6 +648,12 @@ test("partner harness CLI forwards a payload-file for hosted start_onboarding an
       outDir,
       "--attn-base-url",
       `http://127.0.0.1:${address.port}`,
+      "--preset-id",
+      "solana_borrower_legacy_swig",
+      "--creator-ingress-mode",
+      "session_handoff",
+      "--control-profile-id",
+      "attn_default",
       "--action",
       "start_onboarding",
       "--payload-file",
