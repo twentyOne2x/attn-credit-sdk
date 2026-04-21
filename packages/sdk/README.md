@@ -38,7 +38,7 @@ This README should answer:
 
 This package does not, by itself, fund or execute the live credit line. It standardizes the typed contract around the lane so the live integration can be qualified honestly.
 
-Current ClawPump proof boundary: on April 20, 2026, a non-demo mainnet-beta ClawPump bundle was retained through the public SDK harness. The retained stage was `stage_1_platform_counterparty_mvp` and the strongest supportable claim level was `compatibility_only`. The bundle proved SDK packaging compatibility for real ClawPump readbacks, not positive revenue flow, repayment-target invariants, financing readiness, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+Current ClawPump proof boundary: on April 20, 2026, a non-demo mainnet-beta ClawPump bundle was saved through the public SDK harness. In plain English, that proves the public SDK can package and review a real ClawPump export bundle. It does not prove positive revenue flow, repayment-target invariants, financing readiness, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
 
 If you want to execute this contract instead of reading only the types, use the retained-run harness in [`@attn-credit/partner-managed-harness-cli`](../harness-cli/README.md).
 
@@ -110,9 +110,9 @@ Use the contract in this order:
 
 1. describe the current lane with `createPartnerManagedIntegrationDescriptor(...)`
 2. express current requirement coverage with `createPartnerManagedWalletPolicyTemplate(...)`
-3. attach retained readbacks and receipts
+3. attach saved readbacks and receipts
 4. classify the current stage with `classifyPartnerManagedLane(...)`
-5. package one reviewable artifact with `createPartnerManagedEvidencePack(...)`
+5. package one reviewable bundle with `createPartnerManagedEvidencePack(...)`
 6. emit `createPartnerManagedDriftSignal(...)` when debt-open routing, payout authority, or incident posture changes materially
 
 ### Fresh repo rule
@@ -129,7 +129,7 @@ The new code should usually be limited to:
 Treat a fresh repo as real progress only when:
 
 1. it consumes the SDK or harness contract instead of restating it,
-2. it can package one retained file-backed run from partner artifacts,
+2. it can package one saved file-backed review bundle from partner artifacts,
 3. its own `typecheck`, `build`, and `test` commands pass,
 4. and its README or scripts do not claim commands that are not implemented.
 
@@ -157,9 +157,9 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-For a real partner run, pass explicit retained metadata such as `--partner-id clawpump --display-name ClawPump`. Otherwise the descriptor intentionally stays on the generic demo defaults while the receipts still reflect the ClawPump-family source data.
+For a real partner run, pass explicit saved metadata such as `--partner-id clawpump --display-name ClawPump`. Otherwise the descriptor intentionally stays on the generic demo defaults while the receipts still reflect the ClawPump-family source data.
 
-Only after that validation pass and baseline retained run should a separate integration repo be created around the public SDK contract.
+Only after that validation pass and baseline saved review bundle should a separate integration repo be created around the public SDK contract.
 
 If you want one working package layout inside the cloned repo first, start from:
 
@@ -171,7 +171,7 @@ Recommended separate-repo wiring:
 
 1. clone or vendor the public repo into `vendor/attn-credit-sdk`,
 2. declare `@attn-credit/sdk` as a file dependency from `vendor/attn-credit-sdk/packages/sdk`,
-3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+3. run `pnpm --dir vendor/attn-credit-sdk install && pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands so the vendored workspace has its own dependencies and built `dist` outputs,
 4. import from `@attn-credit/sdk` rather than from `vendor/.../src` or `vendor/.../dist`,
 5. keep the new repo limited to partner auth, transport, DTO normalization, export loading, and adapter glue,
 6. and if the public inputs do not define live partner HTTP routes or auth scopes, keep transport explicit, config-driven, and fail closed instead of inventing that contract.

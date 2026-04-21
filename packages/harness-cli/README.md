@@ -37,9 +37,9 @@ This harness does not prove:
 3. payout-control parity from execution alone
 4. broader borrower UI or public-market readiness
 
-It proves the execution contract, the artifact contract, and the failure posture of the public SDK surface.
+It proves three narrower things: the commands run, the expected files are saved, and missing or weak inputs fail closed instead of being guessed.
 
-The first real ClawPump retained run was packaged on April 20, 2026 from non-demo mainnet-beta payout, fee, launch, revenue, and repayment-mode readbacks. It retained successfully at `stage_1_platform_counterparty_mvp` / `compatibility_only`. Treat that as real SDK compatibility proof, not as proof of positive revenue flow, financing readiness, repayment-target invariants, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+The first real ClawPump saved review bundle was packaged on April 20, 2026 from non-demo mainnet-beta payout, fee, launch, revenue, and repayment-mode exports. Treat that as real SDK compatibility proof, not as proof of positive revenue flow, financing readiness, repayment-target invariants, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
 
 ## Example
 
@@ -63,7 +63,7 @@ pnpm run harness:partner-managed-validate -- \
 
 That validation pass tells you:
 1. whether the minimum pack inputs are present,
-2. whether the stronger first retained run bundle is complete,
+2. whether the stronger first saved review bundle is complete,
 3. which files are missing or invalid,
 4. the current stage implied by the bundle,
 5. and the exact next packaging command when the bundle is ready enough.
@@ -116,9 +116,9 @@ pnpm run harness:partner-managed-mock-pilot -- \
   --attn-base-url https://app.attn.markets
 ```
 
-The command prints a compact JSON summary to stdout and writes a timestamped run directory under the chosen output root.
+The command prints a compact JSON summary to stdout and writes a timestamped review directory under the chosen output root.
 
-That attn capabilities snapshot is only a comparison point against attn's current hosted reference surface. It is not proof of clawpump payout-control parity or partner-managed wallet equivalence.
+That attn capabilities snapshot is only a comparison point against attn's current hosted behavior. It is not proof of ClawPump payout-control parity or partner-managed wallet equivalence.
 
 Matrix example:
 
@@ -201,9 +201,9 @@ If a separate partner repo is created after that bootstrap, prefer this wiring:
 
 1. vendor the public SDK repo into `vendor/attn-credit-sdk`,
 2. depend on `@attn-credit/sdk` from `vendor/attn-credit-sdk/packages/sdk`,
-3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+3. run `pnpm --dir vendor/attn-credit-sdk install && pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands so the vendored workspace has its own dependencies and built `dist` outputs,
 4. import from `@attn-credit/sdk` instead of deep-importing `vendor/.../src` or `vendor/.../dist`,
-5. keep the repo-specific code limited to partner auth, transport, DTO normalization, export loading, and retained-run glue,
+5. keep the repo-specific code limited to partner auth, transport, DTO normalization, export loading, and saved-review-bundle glue,
 6. and if the partner's live HTTP contract is not public, keep transport as an explicit stub or config-driven adapter that fails closed.
 
 ## Retained output tree

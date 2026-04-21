@@ -12,15 +12,15 @@ Today, this public SDK enables the Pump creator-fee-backed credit lane in two di
 
 For a partner-managed own-wallet lane, it gives attn and a partner one shared contract for:
 
-1. describing the current creator-fee or revenue lane,
-2. validating whether the partner data bundle is good enough for a truthful first retained run,
-3. classifying the current honest stage and claim level,
-4. packaging retained evidence for underwriting and pilot review,
+1. describing the partner's current payout setup in one consistent format,
+2. checking whether the partner's exported data is good enough for a first saved review bundle,
+3. grading how far the integration has actually progressed,
+4. saving one review bundle for underwriting or pilot review,
 5. and scaffolding a partner-side integration without re-inventing the contract.
 
 For a Pump or ClawPump-style partner, that means the SDK is the public contract for qualifying and packaging the creator-fee-backed borrower lane when the partner keeps its own wallet and payout infrastructure.
 
-As of April 20, 2026, the first real ClawPump retained run has been packaged from non-demo mainnet-beta ClawPump payout, fee, launch, revenue, and repayment-mode readbacks. That proof reached `stage_1_platform_counterparty_mvp` with `compatibility_only` claim level. It proves the public SDK can retain a real ClawPump artifact bundle, but it does not prove positive revenue flow, financing readiness, repayment-target invariants, payout-control parity, public or production readiness, or equivalence to attn's own hosted path.
+As of April 20, 2026, one real ClawPump data bundle has been packaged through this public SDK from non-demo mainnet-beta payout, fee, launch, revenue, and repayment-mode exports. In plain English, that means the public SDK can save and review a real partner bundle. It does not mean live funding is ready, live payout control is proven, production readiness is proven, or the partner lane matches attn's own hosted flow.
 
 The public SDK also exposes one optional attn-hosted reference surface so a caller can inspect attn's current hosted route truth without reconstructing raw catalog fields by hand. That surface is useful as a reference check for attn's own host. It is not the starting contract for a partner-managed integration, and it should not be presented to a partner as if it described the partner's wallet architecture.
 
@@ -40,7 +40,7 @@ Included packages:
 2. `@attn-credit/clawpump`
    A reference adapter showing how one partner-specific backend can map into the generic contract.
 3. `@attn-credit/partner-managed-harness-cli`
-   A retained-run CLI harness that executes the SDK contract, emits logs and artifacts, and snapshots attn compatibility surfaces when requested.
+   A CLI that validates partner files, saves a review bundle, and can optionally snapshot attn's current hosted behavior for comparison.
 
 Included self-serve assets:
 
@@ -92,7 +92,7 @@ pnpm run harness:partner-managed-validate -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-The validation command checks whether the bundle is good enough for the first retained run, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready enough to retain.
+The validation command checks whether the bundle is good enough for the first saved review bundle, tells you which inputs are still missing or invalid, and prints the next packaging command when the bundle is ready.
 
 If you want a faster human-readable gauge instead of JSON, add `--format human`.
 The repo also exposes `pnpm run harness:partner-managed-validate:human` as a convenience wrapper.
@@ -109,7 +109,7 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-For a real partner bundle, stamp the retained descriptor with the actual partner metadata:
+For a real partner bundle, stamp the saved descriptor with the actual partner metadata:
 
 ```bash
 pnpm run harness:partner-managed-pack-from-files -- \
@@ -123,9 +123,9 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --display-name ClawPump
 ```
 
-If those metadata flags are omitted, the retained SDK descriptor uses the generic demo defaults (`partner_demo` / `Partner Demo`) even when the underlying receipts are ClawPump-family receipts.
+If those metadata flags are omitted, the saved SDK descriptor uses the generic demo defaults (`partner_demo` / `Partner Demo`) even when the underlying receipts are ClawPump-family receipts.
 
-That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It packages partner-provided readbacks into retained receipts, descriptor output, stage assessment, and evidence-pack artifacts without implying that the partner already matches any attn-hosted reference path.
+That command is the fastest truthful start for a partner that keeps its own wallet infrastructure. It turns partner-provided exports into a saved review bundle without implying that the partner already matches any attn-hosted reference path.
 
 If you are not sure what data to gather first, start with:
 
@@ -145,13 +145,13 @@ pnpm run harness:attn-live-action:human -- \
   --mint Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu
 ```
 
-Those commands read the canonical hosted borrower contract from `https://app.attn.markets` through the public SDK surface.
+Those commands inspect attn's own hosted borrower API at `https://app.attn.markets` through the public SDK surface.
 
 They are the public way to:
 
-1. read the live claim boundary for the hosted lane,
-2. inspect which borrower actions are ready versus context-bound,
-3. and execute bounded borrower actions like `check_credit` when the input context is public enough to provide.
+1. see what attn's currently hosted lane claims to support,
+2. inspect which hosted borrower actions are currently callable,
+3. and run bounded hosted checks like `check_credit` when the input context is public enough to provide.
 
 They are not a claim that the broader borrower UI, public market, or partner-managed own-wallet runtime is the same thing. Treat them as attn-hosted reference checks only, not as the starting contract for a partner that keeps its own payout and wallet stack.
 
@@ -199,7 +199,7 @@ pnpm run harness:partner-managed-pack-from-files -- \
   --repayment-mode ./examples/partner-managed/repayment-mode.json
 ```
 
-That is the intended first move for a blind external implementation. Clone the public repo and execute the retained file-backed path before you attempt a separate integration repo.
+That is the intended first move for a blind external implementation. Clone the public repo and generate one saved review bundle before you attempt a separate integration repo.
 
 If you want a working package scaffold inside that cloned repo, use:
 
@@ -209,7 +209,7 @@ Recommended separate-repo wiring after that baseline:
 
 1. vendor this repo into `vendor/attn-credit-sdk`,
 2. add `@attn-credit/sdk` as a file dependency from `vendor/attn-credit-sdk/packages/sdk`,
-3. run `pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands if the vendored copy does not already include built `dist` outputs,
+3. run `pnpm --dir vendor/attn-credit-sdk install && pnpm --dir vendor/attn-credit-sdk build` before your root `typecheck`, `build`, or `test` commands so the vendored workspace has its own dependencies and built `dist` outputs,
 4. import from `@attn-credit/sdk` instead of deep-importing `vendor/.../src` or `vendor/.../dist`,
 5. keep local code limited to auth, transport, DTO normalization, export loading, and adapter glue,
 6. and if a live partner HTTP contract is not public yet, keep transport config-driven or stubbed and fail closed instead of guessing routes or auth scopes.
